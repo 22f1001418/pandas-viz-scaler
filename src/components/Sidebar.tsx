@@ -14,7 +14,7 @@ export function Sidebar() {
           <div className="grid place-items-center rounded-md" style={{ width: 28, height: 28, background: "var(--accent)", color: "#fff", fontWeight: 800, fontSize: 12 }}>pd</div>
           <div className="flex flex-col leading-tight">
             <span className="text-[13.5px] font-semibold" style={{ color: "var(--sidebar-fg)" }}>pandas Visualizer</span>
-            <span className="text-[10.5px] tracking-wider uppercase" style={{ color: "var(--sidebar-muted)" }}>Scaler Academy</span>
+            <span className="text-[10.5px] tracking-wider uppercase" style={{ color: "var(--sidebar-muted)" }}>scaler</span>
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto pb-4">

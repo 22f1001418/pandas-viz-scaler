@@ -1,11 +1,9 @@
-import { Menu, Moon, Sun, ExternalLink } from "lucide-react";
+import { Menu, ExternalLink } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { PAGES } from "@/pages/registry";
 
 export function TopBar() {
   const page = useStore((s) => s.page);
-  const theme = useStore((s) => s.theme);
-  const toggleTheme = useStore((s) => s.toggleTheme);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const meta = PAGES[page];
 
@@ -19,9 +17,6 @@ export function TopBar() {
       </div>
       <div className="ml-auto flex items-center gap-1">
         <a className="btn btn-ghost hidden sm:inline-flex" href="https://pandas.pydata.org/docs/" target="_blank" rel="noreferrer"><ExternalLink size={14} /> Docs</a>
-        <button className="btn btn-ghost" onClick={toggleTheme} aria-label="Toggle theme">
-          {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-        </button>
       </div>
     </header>
   );
