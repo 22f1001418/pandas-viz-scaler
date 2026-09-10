@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/PageShell";
 import { StepRunner } from "@/components/StepRunner";
+import { MeltFlow } from "@/components/diagrams/MeltFlow";
 import { PAGES } from "./registry";
 import { df, hlCols, hlHeaders, hlMerge, hlRows, withColumnGroups, withIndex } from "@/lib/dataframe";
 import type { CellValue, HighlightMap, Step } from "@/types";
@@ -294,9 +295,11 @@ export function MeltPage() {
   }));
   const long = df({ rep: longRep, month: longMonth, sales: longVal });
 
-  const partial = df({
-    rep: longRep.slice(0, 3), month: longMonth.slice(0, 3), sales: longVal.slice(0, 3),
+  const upTo = (n: number) => df({
+    rep: longRep.slice(0, n), month: longMonth.slice(0, n), sales: longVal.slice(0, n),
   });
+  const first1 = upTo(1);
+  const first3 = upTo(NAMES.length);
 
   const grouped = withIndex(
     df({ sales: MONTHS_W.map((m) => WIDE_VALS[m].reduce((a, b) => a + b, 0)) }),
@@ -320,12 +323,22 @@ export function MeltPage() {
       explain: "id_vars are the columns that stay put - the identity of the row. Everything else gets unpivoted. Here the rep identifies the row; the three month columns are the measurements to be collapsed.",
     },
     {
-      id: "melting", label: "Columns become values",
-      views: [
-        { frame: wide, title: "before", highlights: hlHeaders([1, 2, 3], "group-a") },
-        { frame: partial, title: "after (first 3 rows)", highlights: hlMerge(hlCols([1], 3, "new"), { "h:1": "new" }), badge: "'jan' is now data" },
-      ],
-      explain: "Watch where the header goes: the column name 'jan' becomes a VALUE in a new month column, and the number underneath it becomes a value in a new sales column. Each original cell turns into its own row.",
+      id: "melting", label: "One cell becomes one row", diagram: "melt-flow",
+      views: [{ frame: first1, title: "long (so far)", highlights: hlMerge(hlCols([1], 1, "new"), { "h:1": "new" }), badge: "1 of 9" }],
+      explain: "Watch where the header goes. The column NAME 'jan' detaches and lands in the month column; the number that sat under it lands in sales. The rep comes along to say whose number it was. That is the whole operation - one wide cell becomes one long row.",
+    },
+    {
+      id: "melting-col", label: "Then the rest of the column",
+      diagram: "melt-flow",
+      views: [{ frame: first3, title: "long (so far)", highlights: hlMerge(hlCols([1], 3, "new"), { "h:1": "new" }), badge: "3 of 9" }],
+      explain: "The same 'jan' header is reused for every rep under it, so one column of 3 values becomes 3 rows that all carry the same month. The month column is repetitive by design - that repetition is what lets you group by it.",
+    },
+    {
+      id: "melting-all", label: "Every cell, every column",
+      diagram: "melt-flow",
+      views: [{ frame: long, title: "long", badge: `${long.data.length} of ${long.data.length}` }],
+      explain: "Nine cells, nine rows. Nothing was aggregated and nothing was lost - melt is a pure reshape, so the 9 numbers in the wide block are the same 9 numbers in the sales column.",
+      variables: [{ name: "wide cells", type: "int", preview: String(NAMES.length * MONTHS_W.length) }, { name: "long rows", type: "int", preview: String(long.data.length) }],
     },
     {
       id: "long", label: "The full long frame",
@@ -355,7 +368,13 @@ export function MeltPage() {
 
   return (
     <PageShell meta={PAGES["melt"]}>
-      <StepRunner runId="melt" steps={steps} code={`long = pd.melt(
+      <StepRunner runId="melt" steps={steps}
+        renderDiagram={(step) => (
+          <MeltFlow names={NAMES} months={MONTHS_W} values={WIDE_VALS}
+            emitted={step.id === "melting" ? 1 : step.id === "melting-col" ? NAMES.length : longVal.length}
+            cascade={step.id !== "melting"} />
+        )}
+        code={`long = pd.melt(
     sales_wide,
     id_vars=["rep"],                     # columns that stay as they are
     value_vars=["jan", "feb", "mar"],    # columns to collapse (default: all others)

@@ -83,23 +83,85 @@ sales_df.dtypes               # per-column dtypes of the whole frame`} steps={st
 export function SelectionPage() {
   const namedIdx = { ...COFFEE, index: COFFEE.data.map((r) => r[0] as string), columns: COFFEE.columns.slice(1), data: COFFEE.data.map((r) => r.slice(1)) };
 
+  // Integer labels that are deliberately not positions — the one case where
+  // .loc and .iloc given the SAME integer return different rows.
+  const LABELS = [3, 1, 5, 0, 4, 2];
+  const shuffled = { ...takeCols(COFFEE, ["drink", "price", "rating"]), index: LABELS };
+  const byLabel = LABELS.indexOf(3);          // .loc[3] → the row LABELLED 3
+  const byPosition = 3;                       // .iloc[3] → the 4th row
+
+  // Chained assignment: the copy that gets written to and thrown away.
+  const PRICEY = COFFEE.data.map((r) => (r[2] as number) > 250);
+  const priceyRows = PRICEY.flatMap((m, i) => (m ? [i] : []));
+  const qtyCol = COFFEE.columns.findIndex((c) => c.name === "qty");
+  const discounted = {
+    ...COFFEE,
+    data: COFFEE.data.map((r, i) => r.map((v, c) => (c === qtyCol && PRICEY[i] ? 0 : v))),
+  };
+
   const steps: Step[] = [
     { id: "iloc-single", label: "iloc[0] — position", views: [
         { frame: COFFEE, title: "df", highlights: hlRows([0], 5), badge: "position 0" },
       ], explain: ".iloc uses integer positions. iloc[0] = first row regardless of index labels. Think of it as 'integer location'." },
     { id: "iloc-slice", label: "iloc[1:4] — exclusive end", views: [
         { frame: takeRows(COFFEE, [1, 2, 3]), title: "df.iloc[1:4]", badge: "3 rows (not 4!)" },
-      ], explain: "Like Python slicing, the stop index is EXCLUDED. 1:4 gives positions 1, 2, 3." },
+      ], explain: "Like Python slicing, the stop is EXCLUDED: 1:4 gives positions 1, 2, 3 — three rows, not four. Hold on to that, because .loc two steps from now does the opposite with the same-looking syntax." },
     { id: "iloc-2d", label: "iloc[:3, :2] — rows AND cols", views: [
         { frame: COFFEE, title: "df", highlights: (() => { const h: HighlightMap = {}; for (let r = 0; r < 3; r++) for (let c = 0; c < 2; c++) h[`${r}:${c}`] = "match"; return h; })(), badge: "3×2 block" },
-      ], explain: "Two slots: [rows, cols]. Both accept ints, slices, lists, or negative indices." },
+      ], explain: "Two slots, comma-separated: [rows, cols]. Each takes an int, a slice, a list, or a boolean mask. Negative positions count from the end, so .iloc[-1] is the last row — the idiom for 'the most recent record' when the frame is sorted by time." },
     { id: "loc-label", label: ".loc by label", views: [
         { frame: namedIdx, title: "df.set_index('drink')", highlights: { "0:*": "match", "4:*": "match" }, badge: "look up by name" },
       ], explain: ".loc uses index labels, not positions. After set_index('drink'), loc['Latte'] finds the Latte row by hash lookup — O(1), not a scan.",
       variables: [{ name: 'df.loc["Latte"]', type: "Series", preview: "L, 280, 45, 4.5" }] },
     { id: "loc-slice", label: ".loc slice is INCLUSIVE", views: [
         { frame: namedIdx, title: 'df.loc["Espresso":"Cappuccino"]', highlights: (() => { const h: HighlightMap = {}; for (let r = 0; r < 4; r++) h[`${r}:*`] = "match"; return h; })(), badge: "4 rows — both ends included!" },
-      ], explain: "The biggest gotcha: .loc slices INCLUDE both endpoints. 'Espresso':'Cappuccino' gives 4 rows, not 3." },
+      ], explain: "The biggest gotcha: .loc slices INCLUDE both endpoints, because a label slice cannot know what comes 'one before' the end label. 'Espresso':'Cappuccino' gives 4 rows where the equivalent .iloc slice would give 3." },
+    {
+      id: "bracket-two-things", label: "[] means two different things",
+      views: [
+        { frame: takeCols(COFFEE, ["price"]), title: "df['price']", highlights: hlHeaders([0], "match"), badge: "a string → COLUMN" },
+        { frame: takeRows(COFFEE, [1, 2]), title: "df[1:3]", highlights: { "0:*": "new", "1:*": "new" }, badge: "a slice → ROWS" },
+      ],
+      explain: "Bare [] switches axis depending on what you hand it. A string or list of strings selects columns; a slice or a boolean mask selects rows. That inconsistency is exactly why .loc and .iloc exist - they always take [rows, cols] in that order, so you never have to remember which axis you are on.",
+    },
+    {
+      id: "loc-int-trap", label: "When .loc and .iloc disagree",
+      views: [
+        { frame: shuffled, title: "df.loc[3]", highlights: { [`${byLabel}:*`]: "match", [`i:${byLabel}`]: "match" }, badge: `label 3 → row at position ${byLabel}` },
+        { frame: shuffled, title: "df.iloc[3]", highlights: { [`${byPosition}:*`]: "new", [`i:${byPosition}`]: "new" }, badge: `position 3 → label ${LABELS[byPosition]}` },
+      ],
+      explain: "Here the index holds integers that are not positions - after a sort, a filter, or a merge, this is the normal state of a frame. The same integer 3 now means two different rows: .loc reads it as a LABEL, .iloc as a POSITION. Every 'why is this the wrong row?' bug lives here. Call .reset_index(drop=True) when you want the two to line up again.",
+      variables: [{ name: "df.loc[3]['drink']", type: "str", preview: String(shuffled.data[byLabel][0]) }, { name: "df.iloc[3]['drink']", type: "str", preview: String(shuffled.data[byPosition][0]) }],
+    },
+    {
+      id: "loc-two-slots", label: "Filter and pick a column at once",
+      views: [
+        { frame: COFFEE, title: "df.loc[df['price'] > 250, 'qty']", highlights: (() => {
+          const h: HighlightMap = {};
+          PRICEY.forEach((m, r) => { for (let c = 0; c < 5; c++) h[`${r}:${c}`] = m ? "mask-true" : "mask-false"; });
+          priceyRows.forEach((r) => { h[`${r}:${qtyCol}`] = "match"; });
+          return h;
+        })(), badge: `${priceyRows.length} rows × 1 column` },
+      ],
+      explain: "A boolean mask is legal in the row slot, so one .loc call does the filtering and the column pick together. Green rows pass the mask; the highlighted cells are what actually comes back. Doing it in two steps - df[mask]['qty'] - looks identical and is the setup for the bug in the next step.",
+    },
+    {
+      id: "chained-assignment", label: "The assignment that vanishes",
+      views: [
+        { frame: COFFEE, title: "df[df['price'] > 250]['qty'] = 0", highlights: (() => {
+          const h: HighlightMap = {};
+          priceyRows.forEach((r) => { h[`${r}:${qtyCol}`] = "drop"; });
+          return h;
+        })(), badge: "SettingWithCopyWarning · df unchanged" },
+        { frame: discounted, title: "df.loc[df['price'] > 250, 'qty'] = 0", highlights: (() => {
+          const h: HighlightMap = {};
+          priceyRows.forEach((r) => { h[`${r}:${qtyCol}`] = "changed"; });
+          return h;
+        })(), badge: "df actually changed" },
+      ],
+      explain: "df[mask] may hand back a COPY. Assigning into that copy writes to a temporary object that is discarded on the next line, so the original frame keeps its old values and you get a SettingWithCopyWarning instead of an error - the left frame still reads 45, 31 and 38. One .loc call with both slots writes to the frame itself. The rule: if an assignment has two [] on the left, it is a bug.",
+      variables: [{ name: "chained → df qty", type: "list", preview: priceyRows.map((r) => String(COFFEE.data[r][qtyCol])).join(", ") }, { name: ".loc → df qty", type: "list", preview: priceyRows.map(() => "0").join(", ") }],
+    },
   ];
 
   return (
@@ -110,7 +172,15 @@ df.iloc[:3, :2]           # first 3 rows, first 2 columns
 
 df = df.set_index("drink")
 df.loc["Latte"]                     # single label → Series
-df.loc["Espresso":"Cappuccino"]     # label slice → INCLUSIVE at both ends`} steps={steps} />
+df.loc["Espresso":"Cappuccino"]     # label slice → INCLUSIVE at both ends
+
+df["price"]               # a string  → one COLUMN
+df[1:3]                   # a slice   → two ROWS  (same operator, other axis)
+
+df.loc[df["price"] > 250, "qty"]      # mask in slot 1, column in slot 2
+
+df[df["price"] > 250]["qty"] = 0      # writes to a COPY — silently lost
+df.loc[df["price"] > 250, "qty"] = 0  # writes to the frame`} steps={steps} />
     </PageShell>
   );
 }
@@ -314,6 +384,36 @@ export function FilteringPage() {
   isinMask.forEach((m, r) => { for (let c = 0; c < 5; c++) isinHl[`${r}:${c}`] = m ? "mask-true" : "mask-false"; });
   const isinKept = takeRows(COFFEE, [0, 1, 2, 5]);
 
+  // .between — derived, so the badge can never disagree with the highlights.
+  const LO = 200, HI = 300;
+  const PRICES = COFFEE.data.map((r) => r[2] as number);
+  const betweenMask = PRICES.map((p) => p >= LO && p <= HI);
+  const betweenRows = betweenMask.flatMap((m, i) => (m ? [i] : []));
+  const betweenHl: HighlightMap = {};
+  betweenMask.forEach((m, r) => { for (let c = 0; c < 5; c++) betweenHl[`${r}:${c}`] = m ? "mask-true" : "mask-false"; });
+
+  // A rating that never arrived. Every comparison against it is False.
+  const RATINGS = COFFEE.data.map((r) => r[4] as number);
+  const gapAt = 4;
+  const ratingsWithGap = RATINGS.map((v, i) => (i === gapAt ? null : v));
+  const ratingCol = COFFEE.columns.findIndex((c) => c.name === "rating");
+  const withGap = {
+    ...COFFEE,
+    data: COFFEE.data.map((r, i) => r.map((v, c) => (c === ratingCol && i === gapAt ? null : v))),
+  };
+  const THRESH = 4.3;
+  const gapMask = ratingsWithGap.map((v) => v !== null && v >= THRESH);
+  const gapHl: HighlightMap = {};
+  gapMask.forEach((m, r) => { for (let c = 0; c < 5; c++) gapHl[`${r}:${c}`] = m ? "mask-true" : "mask-false"; });
+  gapHl[`${gapAt}:${ratingCol}`] = "null";
+  const belowMask = ratingsWithGap.map((v) => v !== null && v < THRESH);
+  const belowHl: HighlightMap = {};
+  belowMask.forEach((m, r) => { for (let c = 0; c < 5; c++) belowHl[`${r}:${c}`] = m ? "mask-true" : "mask-false"; });
+  belowHl[`${gapAt}:${ratingCol}`] = "null";
+  const keptCount = gapMask.filter(Boolean).length;
+  const belowCount = belowMask.filter(Boolean).length;
+  const rowsWord = (n: number) => `${n} row${n === 1 ? "" : "s"} kept`;
+
   const steps: Step[] = [
     { id: "mask", label: "Build a boolean mask", views: [
         { frame: maskDf, title: "mask = df['price'] > 250", highlights: maskHl, badge: "True/False per row" },
@@ -339,7 +439,38 @@ export function FilteringPage() {
       ], explain: ".isin(['L','S']) is cleaner than (size == 'L') | (size == 'S'). Works for any number of values." },
     { id: "query", label: ".query() string syntax", views: [
         { frame: kept, title: "df.query('price > 250')", badge: "same result, cleaner syntax" },
-      ], explain: "String-based filtering. Use @variable to reference Python variables. For large DataFrames, query can be faster because it avoids intermediate arrays." },
+      ], explain: "String-based filtering: the column names are read from the frame, so there is no df[...] noise repeated in every condition. Use @variable to reach a Python variable and backticks for column names with spaces. On a large frame it can also be faster, because it evaluates the expression without materialising an intermediate boolean array per condition." },
+    {
+      id: "between", label: ".between() for a range",
+      views: [
+        { frame: COFFEE, title: `df['price'].between(${LO}, ${HI})`, highlights: betweenHl, badge: `${betweenRows.length} rows · both ends included` },
+      ],
+      explain: `Two comparisons collapse into one call: .between(${LO}, ${HI}) is (price >= ${LO}) & (price <= ${HI}). Note that it is INCLUSIVE on both sides by default - the ${LO} and the ${HI} are both in - which is the opposite of a Python range and catches people out on bucket boundaries. Pass inclusive='neither' or 'left' when you need the other behaviour.`,
+    },
+    {
+      id: "precedence", label: "Why the parentheses matter",
+      views: [
+        { frame: COFFEE, title: "df[df['price'] > 200 & df['rating'] >= 4.3]", highlights: hlRows([], 5), badge: "TypeError / wrong rows" },
+        { frame: COFFEE, title: "df[(df['price'] > 200) & (df['rating'] >= 4.3)]", highlights: (() => {
+          const h: HighlightMap = {};
+          COFFEE.data.forEach((r, ri) => {
+            const m = (r[2] as number) > 200 && (r[4] as number) >= 4.3;
+            for (let c = 0; c < 5; c++) h[`${ri}:${c}`] = m ? "mask-true" : "mask-false";
+          });
+          return h;
+        })(), badge: "what you meant" },
+      ],
+      explain: "& binds TIGHTER than > in Python, so the un-parenthesised version is read as price > (200 & df['rating']) >= 4.3 - it compares against the wrong thing entirely and usually raises TypeError. Every condition gets its own parentheses. And use & / | / ~, never and / or / not: the keywords ask a whole Series for one True/False and raise 'truth value of a Series is ambiguous'.",
+    },
+    {
+      id: "nan-mask", label: "NaN is never True",
+      views: [
+        { frame: withGap, title: `df['rating'] >= ${THRESH}`, highlights: gapHl, badge: rowsWord(keptCount) },
+        { frame: withGap, title: `df['rating'] < ${THRESH}`, highlights: belowHl, badge: rowsWord(belowCount) },
+      ],
+      explain: `Americano's rating never arrived. Every comparison against NaN returns False - NaN is not equal to, greater than, or less than anything, including itself - so that row fails BOTH filters. ${keptCount} + ${belowCount} = ${keptCount + belowCount} of ${COFFEE.data.length} rows: splitting a frame on a condition and its opposite silently loses the nulls, and the two halves do not add back up. Filter on .notna() first, or fill, and decide which side the missing rows belong on rather than letting them fall out.`,
+      variables: [{ name: "kept + dropped", type: "int", preview: `${keptCount + belowCount} of ${COFFEE.data.length}` }, { name: "np.nan == np.nan", type: "bool", preview: "False" }],
+    },
   ];
 
   return (
@@ -356,7 +487,15 @@ df[df["size"].isin(["L", "S"])]
 
 # .query() — string syntax
 df.query("price > 250")
-df.query("price > @threshold")   # @ references Python variable`} steps={steps} />
+df.query("price > @threshold")   # @ references Python variable
+
+# .between() — INCLUSIVE at both ends
+df[df["price"].between(200, 300)]
+
+# NaN fails every comparison, so these two do NOT partition the frame
+df[df["rating"] >= 4.3]
+df[df["rating"] <  4.3]
+df[df["rating"].isna()]          # the rows both filters dropped`} steps={steps} />
     </PageShell>
   );
 }

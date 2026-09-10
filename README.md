@@ -40,7 +40,7 @@ Additional visual elements used across topics:
 - **Before → After** side-by-side frames with diff highlights
 - **Color-coded row/column grouping** with semantic meaning (group-a through group-e)
 - **Boolean mask overlays** (green = keep, faded red = drop) for filtering topics
-- **SVG mini-diagrams** for joins (Venn), groupby (split tree), funnel shapes (planned for later batches)
+- **SVG mini-diagrams** for joins (Venn), groupby (split tree), rolling windows, shift/lag, funnels, and melt — where the melt diagram animates each wide cell flying into the long frame it becomes
 
 ---
 
@@ -101,6 +101,7 @@ pandas-visualizer/
 │   │       ├── SplitApplyCombine.tsx  # groupby, parameterised by real data
 │   │       ├── RollingWindow.tsx   # sliding window + where NaNs come from
 │   │       ├── ShiftLag.tsx        # shift(1) and the NaN it creates
+│   │       ├── MeltFlow.tsx        # A column NAME flying into the month column
 │   │       └── Funnel.tsx          # stage-over-stage conversion
 │   ├── pages/
 │   │   ├── registry.ts            # All 44 topics: metadata, sections, W/W/H context
@@ -138,6 +139,8 @@ pandas-visualizer/
 │   ├── dataframe.test.ts          # df(), dtypes, formatting, highlight maps
 │   └── useStepAnimation.test.ts   # Playback: advance, clamp, rewind on new runId
 ├── .github/workflows/ci.yml    # typecheck → lint → test → build
+├── vercel.json                 # Build, SPA rewrite, asset caching
+├── .nvmrc                      # Node 20, matching CI
 ├── index.html
 ├── eslint.config.js
 ├── package.json
@@ -193,16 +196,47 @@ an app shell (~103KB gzipped), a shared `StepRunner` chunk (~36KB), and one chun
 file (5–13KB each). Opening a topic pulls the shell plus its own chunk — around 145KB gzipped,
 against 336KB when every topic shipped in a single bundle.
 
-## Deploy to Render.com
+## Deploy
 
-Create a **Static Site** on Render pointing to your repo:
+### Vercel (automatic)
+
+`vercel.json` is checked in, so the repo needs no dashboard configuration — build command,
+output directory, SPA rewrite and asset caching all come from that file.
+
+One-time setup: on [vercel.com/new](https://vercel.com/new), **Import** this Git repository and
+deploy. Vercel then builds on its own from that point on —
+
+| Trigger | Result |
+|---|---|
+| Push to `main` | Production deploy |
+| Push to any other branch | Preview deploy |
+| Pull request | Preview deploy, with the URL commented on the PR |
+
+Nothing else is needed; there is no deploy step in GitHub Actions and no token to store. CI and
+Vercel run independently on the same push, so a red CI run does **not** block a deploy — treat
+`npm run check` as the gate before pushing.
+
+What `vercel.json` sets:
+
+- `framework: vite`, `buildCommand: npm run build`, `outputDirectory: dist`, `installCommand: npm ci`
+  (`npm ci` installs exactly the checked-in lockfile, so a deploy can't drift from local)
+- A rewrite sending every non-asset path to `index.html`. The app is hash-routed, so the server
+  only ever sees `/` in practice — this covers a stray deep link.
+- Immutable one-year caching on `/assets/*` (filenames are content-hashed) and no-cache on
+  `index.html`, so a deploy takes effect immediately while chunks stay cached.
+
+`.nvmrc` pins Node 20 to match CI.
+
+### Render.com
+
+Create a **Static Site** pointing to the repo:
 
 | Setting | Value |
 |---|---|
 | Build command | `npm install && npm run build` |
 | Publish directory | `dist` |
 
-The `public/_redirects` file is already configured for SPA routing (all paths serve `index.html`).
+`public/_redirects` handles SPA routing there (all paths serve `index.html`).
 
 ---
 
