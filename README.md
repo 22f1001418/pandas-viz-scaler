@@ -88,20 +88,34 @@ pandas-visualizer/
 │   │   ├── Inspector.tsx           # Right-rail debugger panel
 │   │   ├── PageShell.tsx           # What/Why/How header + layout
 │   │   ├── Sidebar.tsx             # Dark left nav: search, sections, progress dots
-│   │   ├── StepRunner.tsx          # Glue: code + frames + controls + inspector
+│   │   ├── SeriesView.tsx          # pandas Series repr (no header, dtype footer)
+│   │   ├── BarCompare.tsx          # Scaled magnitude/timing bars
+│   │   ├── StepRunner.tsx          # Glue: code + diagram + frames + bars + inspector
 │   │   ├── TopBar.tsx              # Breadcrumb, topic nav, shortcuts, theme toggle
-│   │   └── TopicNav.tsx            # Prev/next topic footer
+│   │   ├── TopicNav.tsx            # Prev/next topic footer
+│   │   └── diagrams/
+│   │       ├── index.tsx           # DIAGRAMS registry, keyed by Step.diagram
+│   │       ├── Venn.tsx            # inner/left/right/outer/cross
+│   │       ├── SplitApplyCombine.tsx  # groupby, parameterised by real data
+│   │       ├── RollingWindow.tsx   # sliding window + where NaNs come from
+│   │       ├── ShiftLag.tsx        # shift(1) and the NaN it creates
+│   │       └── Funnel.tsx          # stage-over-stage conversion
 │   ├── pages/
 │   │   ├── registry.ts            # All 44 topics: metadata, sections, W/W/H context
 │   │   ├── index.ts               # IMPLEMENTED map — the stub/built source of truth
-│   │   ├── Foundations1.tsx        # Topics 1–5 (Series, Selection, Comprehensions, Lambda, Filtering)
-│   │   ├── Foundations2.tsx        # Topics 6–10 (Sorting, Agg, Dates, Missing, Chaining)
-│   │   ├── Vectorization.tsx       # Topics 11–13 (cut/qcut, Vectorization, Loop vs Vec)
+│   │   ├── Foundations1.tsx        # Series, Selection, Comprehensions, Lambda, Filtering
+│   │   ├── Foundations2.tsx        # Sorting, Agg, Dates, Missing, Chaining
+│   │   ├── Vectorization.tsx       # cut/qcut, Vectorization, Loop vs Vec
+│   │   ├── GroupBy.tsx             # GroupBy mental model, Multi-level GroupBy
+│   │   ├── TimeSeries.tsx          # Rolling Windows, Shift & Lag
+│   │   ├── Reshaping.tsx           # pivot_table
+│   │   ├── Joins.tsx               # Join Types Deep Dive
+│   │   ├── Patterns.tsx            # Funnel Analysis
 │   │   └── StubPage.tsx           # Placeholder for topics not yet visualized
 │   ├── hooks/
 │   │   └── useStepAnimation.ts    # Step progression via setInterval
 │   ├── lib/
-│   │   ├── dataframe.ts           # df(), cloneFrame, takeRows, hlRows, hlCols, formatCell
+│   │   ├── dataframe.ts           # df(), series(), withIndex, withColumnGroups, hl* helpers
 │   │   ├── routing.ts             # Hash routing, curriculum order, prev/next topic
 │   │   └── keys.ts                # Guards so shortcuts stand down while typing
 │   ├── store/
@@ -182,13 +196,58 @@ Every color resolves through a variable (`--accent`, `--fg`, `--s1`, …) define
 
 ---
 
+## Rendering primitives
+
+Topics are plain `Step[]` data. Everything a step can draw is one of these — adding a topic means
+writing data, not components.
+
+| Primitive | What it draws | Set via |
+|---|---|---|
+| **Table** | The default `DataFrameView` | `views: [{ frame }]` |
+| **MultiIndex** | Nested row labels, outer level printed only when it changes — exactly as pandas reprs it | `withIndex(frame, [["Coffee","North"], …], ["category","region"])` |
+| **Grouped column headers** | A spanning header row above the columns (`aggfunc=['sum','mean']`, crosstab) | `withColumnGroups(frame, [{ label: "sum", span: 3 }])` |
+| **Series repr** | No column header, a `Name: …, dtype: …` footer, narrow like the real thing | `views: [{ frame, render: "series" }]` |
+| **Comparison bars** | Magnitudes scaled to the largest value, so a 1000x gap looks like one | `bars: { bars: [{ label, value, tone }] }` |
+| **Diagrams** | SVG from the shared registry — Venn, split-apply-combine, rolling window, shift, funnel | `diagram: "venn-outer"` |
+
+**Highlights** address cells by string key, so a whole step's emphasis is one object:
+
+```
+"2:3"  one cell        "h:1"  a column header      "*:2"  a whole column
+"2:*"  a whole row     "i:4"  an index cell        "h:*"  every header
+```
+
+Kinds are semantic (`match`, `new`, `changed`, `drop`, `null`, `window`, `mask-true/false`,
+`group-a…e`), and the helpers `hlRows`, `hlCols`, `hlHeaders`, `hlIndex`, `hlByGroup` and `hlMerge`
+build them concisely. `hlByGroup` assigns a colour per distinct key, which is what makes the
+groupby and join pages readable.
+
+A diagram normally comes from the registry by name. When a page has real numbers worth showing,
+it passes `renderDiagram` instead — the GroupBy page feeds its actual category means into
+`SplitApplyCombine`, so nothing in the drawing contradicts the frame beneath it.
+
+**Derive, don't hardcode.** Pages compute their aggregates in JS from the source arrays rather
+than typing results in by hand, so the numbers on screen cannot drift from the dataset above them.
+
+---
+
 ## Implementation status
 
-**Fully visualized (13 topics):**
-Series vs DataFrame, Selection & Indexing, Comprehensions, Lambda/map/filter, Filtering Patterns, Sorting & Top-N, Basic Aggregation, Working with Dates, Missing Data Basics, Chaining vs Intermediates, pd.cut & pd.qcut, Vectorization Patterns, Loop vs Vectorized.
+**Fully visualized (20 topics):**
 
-**Stub pages with full W/W/H context (31 topics):**
-All remaining topics are navigable via the sidebar. Each shows the What/Why/How educational context and a "visualization in progress" placeholder. The content for these stubs is complete — only the step-by-step animations need to be built.
+| Section | Topics |
+|---|---|
+| Foundations | Series vs DataFrame, Selection & Indexing, Comprehensions, Lambda/map/filter, Filtering Patterns, Sorting & Top-N, Basic Aggregation, Working with Dates, Missing Data Basics, Chaining vs Intermediates |
+| Vectorization | pd.cut & pd.qcut, Vectorization Patterns, Loop vs Vectorized |
+| GroupBy | GroupBy Mental Model, Multi-level GroupBy |
+| Time Series | Rolling Windows, Shift & Lag |
+| Reshaping | pivot_table |
+| Joins | Join Types Deep Dive |
+| Patterns | Funnel Analysis |
+
+**Stub pages with full W/W/H context (24 topics):**
+All remaining topics are navigable from the sidebar and show their What/Why/How context with a
+"visualization in progress" placeholder. The sidebar dot tells the two apart at a glance.
 
 ---
 
@@ -200,7 +259,10 @@ All remaining topics are navigable via the sidebar. Each shows the What/Why/How 
 4. Create the page component (or add to an existing section file)
 5. Register it in the `IMPLEMENTED` map in `src/pages/index.ts` (this also flips its sidebar progress dot)
 
-Each page follows the same pattern: define a `Step[]` array with frames, highlights, and explanations → pass to `<StepRunner />` → wrap in `<PageShell />`.
+Each page follows the same pattern: define a `Step[]` array → pass to `<StepRunner />` → wrap in
+`<PageShell />`. Each step carries `views` (frames plus highlights), an `explain` string, optional
+`variables`, and optionally a `diagram` key or a `bars` comparison. See **Rendering primitives**
+above for what a step can draw.
 
 ---
 

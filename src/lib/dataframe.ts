@@ -1,4 +1,4 @@
-import type { CellValue, Column, DataFrame, Dtype } from "@/types";
+import type { CellValue, Column, ColumnGroup, DataFrame, Dtype, HighlightKind, HighlightMap, IndexEntry } from "@/types";
 
 export function df(
   cols: Record<string, CellValue[]>,
@@ -78,4 +78,56 @@ export function hlCols(cols: number[], nrows: number, kind: import("@/types").Hi
 /** Merge two highlight maps (second wins on conflict). */
 export function hlMerge(...maps: import("@/types").HighlightMap[]): import("@/types").HighlightMap {
   return Object.assign({}, ...maps);
+}
+
+/**
+ * A one-column frame rendered as a pandas Series. `name` becomes the
+ * `Name:` line in the repr, so pass the column name the Series would carry.
+ */
+export function series(
+  name: string,
+  values: CellValue[],
+  opts?: { index?: IndexEntry[]; dtype?: Dtype },
+): DataFrame {
+  const f = df({ [name]: values }, opts?.dtype ? { dtypes: { [name]: opts.dtype } } : undefined);
+  return opts?.index ? { ...f, index: opts.index } : f;
+}
+
+/** Attach a MultiIndex (one tuple per row) and name its levels. */
+export function withIndex(f: DataFrame, index: IndexEntry[], names?: string[]): DataFrame {
+  return { ...f, index, indexNames: names };
+}
+
+/** Attach a spanning header row above the columns. */
+export function withColumnGroups(f: DataFrame, groups: ColumnGroup[]): DataFrame {
+  return { ...f, columnGroups: groups };
+}
+
+/** Highlight column headers. */
+export function hlHeaders(cols: number[], kind: HighlightKind = "match"): HighlightMap {
+  const m: HighlightMap = {};
+  cols.forEach((c) => { m[`h:${c}`] = kind; });
+  return m;
+}
+
+/** Highlight index cells. */
+export function hlIndex(rows: number[], kind: HighlightKind = "match"): HighlightMap {
+  const m: HighlightMap = {};
+  rows.forEach((r) => { m[`i:${r}`] = kind; });
+  return m;
+}
+
+/** Assign one group colour per distinct key, cycling through the five slots. */
+export function hlByGroup(keys: (string | number)[], ncols: number): HighlightMap {
+  const tones: HighlightKind[] = ["group-a", "group-b", "group-c", "group-d", "group-e"];
+  const seen = new Map<string, HighlightKind>();
+  const m: HighlightMap = {};
+  keys.forEach((k, r) => {
+    const s = String(k);
+    if (!seen.has(s)) seen.set(s, tones[seen.size % tones.length]);
+    const tone = seen.get(s)!;
+    for (let c = 0; c < ncols; c++) m[`${r}:${c}`] = tone;
+    m[`i:${r}`] = tone;
+  });
+  return m;
 }

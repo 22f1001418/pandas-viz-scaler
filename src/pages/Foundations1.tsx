@@ -1,7 +1,7 @@
 import { PageShell } from "@/components/PageShell";
 import { StepRunner } from "@/components/StepRunner";
 import { PAGES } from "./registry";
-import { df, takeRows, takeCols, hlRows, hlCols, hlMerge } from "@/lib/dataframe";
+import { df, series, takeRows, takeCols, hlRows, hlCols, hlHeaders, hlMerge } from "@/lib/dataframe";
 import type { Step, HighlightMap } from "@/types";
 
 // ─── Shared dataset: Coffee shop sales ─────────────────────
@@ -16,24 +16,43 @@ const COFFEE = df({
 // ═══ 1. Series vs DataFrame ════════════════════════════════
 
 export function SeriesVsDfPage() {
-  const priceSeries = df({ price: [280, 180, 320, 250, 200, 300] });
+  const priceSeries = series("price", [280, 180, 320, 250, 200, 300]);
+  const singleCol = takeCols(COFFEE, ["price"]);
   const twoCols = takeCols(COFFEE, ["drink", "price"]);
+  const rowSeries = series("0", ["Latte", "L", 280, 45, 4.5], {
+    index: ["drink", "size", "price", "qty", "rating"],
+  });
 
   const steps: Step[] = [
     { id: "df", label: "A DataFrame", views: [{ frame: COFFEE, title: "sales_df", badge: "2-D table · 6 rows × 5 cols" }],
       explain: "A DataFrame is a 2-D labelled table. Every column has a name and a single dtype. The left-most integers (0–5) are the row index.", variables: [{ name: "sales_df.shape", type: "tuple", preview: "(6, 5)" }] },
     { id: "series", label: "One column → Series", views: [
-        { frame: COFFEE, title: "sales_df", highlights: hlCols([2], 6), badge: "select 'price'" },
-        { frame: priceSeries, title: "sales_df['price']", badge: "Series (1-D)" },
-      ], explain: "Pulling one column out gives a Series — a 1-D labelled array. It keeps the DataFrame's index so it stays aligned with sibling columns." },
+        { frame: COFFEE, title: "sales_df", highlights: hlMerge(hlCols([2], 6), hlHeaders([2])), badge: "select 'price'" },
+        { frame: priceSeries, title: "sales_df['price']", badge: "Series (1-D)", render: "series" },
+      ], explain: "Pulling one column out gives a Series — a 1-D labelled array. Look at what the repr loses: no column header, no grid, and a dtype line at the bottom instead. It keeps the DataFrame's index, so it stays aligned with its sibling columns." },
+    { id: "anatomy", label: "A Series has three parts", views: [
+        { frame: priceSeries, title: "sales_df['price']", highlights: { "i:*": "match" }, badge: "index · values · dtype", render: "series",
+          note: "Left column = index labels. Right = values. Footer = the name and the one dtype shared by every value." },
+      ], explain: "Index, values, and a single dtype. That last part is the constraint people forget: a Series is one type all the way down, which is why mixing text into a number column silently turns the whole thing into object.",
+      variables: [{ name: "sales_df['price'].dtype", type: "dtype", preview: "int64" }] },
+    { id: "double-bracket", label: "One column, but double brackets", views: [
+        { frame: priceSeries, title: "sales_df['price']", badge: "Series", render: "series" },
+        { frame: singleCol, title: "sales_df[['price']]", badge: "DataFrame — note the header" },
+      ], explain: "Same data, different container. Single brackets give a Series; a LIST inside the brackets gives a DataFrame, even when the list holds one name. This is the distinction behind half of all 'why does my code say Series has no attribute...' errors.",
+      variables: [{ name: "type(sales_df['price'])", type: "class", preview: "Series" }, { name: "type(sales_df[['price']])", type: "class", preview: "DataFrame" }] },
     { id: "sub-df", label: "Multiple columns → DataFrame", views: [
-        { frame: COFFEE, title: "sales_df", highlights: hlMerge(hlCols([0], 6), hlCols([2], 6)), badge: "select drink + price" },
+        { frame: COFFEE, title: "sales_df", highlights: hlMerge(hlCols([0], 6), hlCols([2], 6), hlHeaders([0, 2])), badge: "select drink + price" },
         { frame: twoCols, title: "sales_df[['drink','price']]", badge: "still a DataFrame" },
-      ], explain: "Double brackets with a list → a sub-DataFrame. Notice it's still 2-D with an index, headers, and multiple columns." },
+      ], explain: "Double brackets with a list → a sub-DataFrame. Notice it's still 2-D with an index, headers, and multiple columns — and each column keeps its own dtype." },
     { id: "row", label: "One row → also a Series", views: [
         { frame: COFFEE, title: "sales_df", highlights: hlRows([0], 5), badge: "row 0" },
-      ], explain: "Picking a single row with .iloc[0] returns a Series too — but now the index is the column names (drink, size, price, qty, rating) and the values are that row's data.",
-      variables: [{ name: "sales_df.iloc[0]", type: "Series", preview: "Latte, L, 280, 45, 4.5" }] },
+        { frame: rowSeries, title: "sales_df.iloc[0]", badge: "Series — index is the column names", render: "series" },
+      ], explain: "Picking a single row returns a Series too, rotated: the index is now the column NAMES and the values are that row's data. Because those values mix text and numbers, the dtype collapses to object — which is why row-wise arithmetic on a mixed frame misbehaves.",
+      variables: [{ name: "sales_df.iloc[0].dtype", type: "dtype", preview: "object" }] },
+    { id: "df-is-dict", label: "A DataFrame is a dict of Series", views: [
+        { frame: COFFEE, title: "sales_df", highlights: hlHeaders([0, 1, 2, 3, 4], "group-a"), badge: "5 Series, one shared index" },
+      ], explain: "That is the whole model: a DataFrame is columns of Series glued to one common index. Every operation you will learn is either 'do something to one Series' or 'line up several Series by their index' — and alignment by index, not by position, is what makes pandas different from a spreadsheet.",
+      variables: [{ name: "sales_df.dtypes", type: "Series", preview: "object, object, int64, int64, float64" }] },
   ];
 
   return (
@@ -48,9 +67,13 @@ sales_df = pd.DataFrame({
     "rating":[4.5, 4.2, 4.8, 4.3, 3.9, 4.6],
 })
 
-sales_df["price"]             # one column → Series
-sales_df[["drink", "price"]]  # list of columns → DataFrame
-sales_df.iloc[0]              # one row → Series`} steps={steps} />
+sales_df["price"]             # one column  → Series
+sales_df[["price"]]           # list of one → DataFrame (!)
+sales_df[["drink", "price"]]  # list        → DataFrame
+sales_df.iloc[0]              # one row     → Series, indexed by column name
+
+sales_df["price"].dtype       # int64  — a Series is ONE dtype
+sales_df.dtypes               # per-column dtypes of the whole frame`} steps={steps} />
     </PageShell>
   );
 }

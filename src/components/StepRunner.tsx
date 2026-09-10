@@ -3,8 +3,11 @@ import { useStepAnimation } from "@/hooks/useStepAnimation";
 import { AnimationControls } from "./AnimationControls";
 import { CodeCell } from "./CodeCell";
 import { DataFrameView } from "./DataFrameView";
+import { SeriesView } from "./SeriesView";
+import { BarCompare } from "./BarCompare";
+import { Diagram } from "./diagrams";
 import { Inspector } from "./Inspector";
-import type { Step } from "@/types";
+import type { FrameView, Step } from "@/types";
 import type { ReactNode } from "react";
 import { isActivatable, isTyping } from "@/lib/keys";
 
@@ -15,7 +18,7 @@ interface Props {
   steps: Step[];
   layoutId?: string;
   interval?: number;
-  /** Optional SVG diagram renderer per step. */
+  /** Override the shared diagram registry for a one-off drawing. */
   renderDiagram?: (step: Step, index: number) => ReactNode;
 }
 
@@ -48,29 +51,23 @@ export function StepRunner({ runId, code, activeLineByStep, steps, layoutId = "d
       <div className="flex flex-col gap-3 min-w-0">
         <CodeCell code={code} count={1} kind="in" activeLine={activeLine} active />
 
-        {/* Optional diagram */}
-        {renderDiagram && current.diagram && (
-          <div className="diagram-wrap">{renderDiagram(current, step)}</div>
+        {/* Diagram: page-supplied renderer first, else the shared registry */}
+        {current.diagram && (
+          <div className="diagram-wrap">
+            {renderDiagram ? renderDiagram(current, step) : <Diagram name={current.diagram} />}
+          </div>
         )}
 
         {/* Output frames */}
         <div className="nb-cell nb-cell--output">
           <div className="nb-cell__gutter nb-cell__prompt-out">Out[1]:</div>
           <div className="nb-cell__body flex flex-col gap-4">
-            {/* Arrow between before/after frames */}
-            {current.views.length > 1 && (
-              <div className={`grid gap-3 ${current.views.length > 1 ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"}`}>
-                {current.views.map((v, i) => (
-                  <DataFrameView key={`${runId}-${step}-${i}`} frame={v.frame} title={v.title} badge={v.badge}
-                    highlights={v.highlights} note={v.note} layoutId={`${layoutId}-${i}`} maxHeight={420} />
-                ))}
-              </div>
-            )}
-            {current.views.length === 1 && (
-              <DataFrameView key={`${runId}-${step}-0`} frame={current.views[0].frame} title={current.views[0].title}
-                badge={current.views[0].badge} highlights={current.views[0].highlights}
-                note={current.views[0].note} layoutId={`${layoutId}-0`} maxHeight={420} />
-            )}
+            <div className={current.views.length > 1 ? "grid gap-4 grid-cols-1 xl:grid-cols-2" : ""}>
+              {current.views.map((v, i) => (
+                <View key={`${runId}-${step}-${i}`} view={v} layoutId={`${layoutId}-${i}`} />
+              ))}
+            </div>
+            {current.bars && <BarCompare {...current.bars} />}
           </div>
         </div>
 
@@ -83,5 +80,14 @@ export function StepRunner({ runId, code, activeLineByStep, steps, layoutId = "d
         <Inspector explain={current.explain} variables={current.variables} stepLabel={current.label} stepKey={step} />
       </div>
     </div>
+  );
+}
+
+/** A view is a table unless it asks to be drawn as a Series. */
+function View({ view, layoutId }: { view: FrameView; layoutId: string }) {
+  const Cmp = view.render === "series" ? SeriesView : DataFrameView;
+  return (
+    <Cmp frame={view.frame} title={view.title} badge={view.badge}
+      highlights={view.highlights} note={view.note} layoutId={layoutId} maxHeight={420} />
   );
 }

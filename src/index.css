@@ -174,3 +174,20 @@ code.il { font-family: "JetBrains Mono", monospace; font-size: 11.5px; padding: 
 
 /* ─── Keyboard hint ──────────────────────────────────────── */
 .kbd { font-family: "JetBrains Mono", monospace; font-size: 10.5px; min-width: 42px; text-align: center; padding: 2px 6px; border-radius: 5px; background: var(--s2); border: 1px solid var(--border); color: var(--fg-muted); }
+
+/* ─── MultiIndex + grouped column headers ────────────────── */
+.df-header-group { text-align: center; letter-spacing: .06em; color: var(--accent); background: var(--accent-soft); border-bottom: 1px solid var(--border); }
+.df-header-index { text-align: left; color: var(--fg-subtle); font-style: italic; text-transform: none; letter-spacing: 0; }
+.df-index-outer { color: var(--fg); background: var(--s3); border-right: 1px solid var(--border); }
+.df-hl-window { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* ─── Series repr ────────────────────────────────────────── */
+.sr-card { border-left: 3px solid var(--pink); width: fit-content; max-width: 100%; min-width: 190px; }
+.sr-index { background: transparent; border-right: 1px solid var(--border); min-width: 54px; }
+.sr-value { padding-left: 28px; min-width: 84px; }
+.sr-footer { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--fg-subtle); padding: 7px 10px; border-top: 1px solid var(--border); background: var(--s2); }
+
+/* ─── Comparison bars ────────────────────────────────────── */
+.perf-bar--slow    { background: linear-gradient(90deg, var(--red), var(--amber)); }
+.perf-bar--fast    { background: linear-gradient(90deg, var(--teal), var(--green)); }
+.perf-bar--neutral { background: var(--accent); }
