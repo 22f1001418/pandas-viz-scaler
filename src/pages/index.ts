@@ -1,66 +1,97 @@
-import type { ComponentType } from "react";
+import { lazy, type ComponentType, type LazyExoticComponent } from "react";
 import type { PageId } from "@/store/useStore";
 
-import { SeriesVsDfPage, SelectionPage, ComprehensionsPage, LambdaMapFilterPage, FilteringPage } from "./Foundations1";
-import { SortingTopNPage, BasicAggPage, DatesPage, MissingBasicsPage, ChainingPage } from "./Foundations2";
-import { CutQcutPage, VectorizationPage, LoopVsVecPage } from "./Vectorization";
-import { GroupByMentalPage, MultiGroupByPage, AggPatternsPage, TransformApplyFilterPage, WindowGroupsPage } from "./GroupBy";
-import { RollingPage, ShiftLagPage, ResamplePage } from "./TimeSeries";
-import { PivotTablePage, CrosstabPage, MeltPage } from "./Reshaping";
-import { JoinTypesPage, MergeJoinConcatPage, MergeMechanicsPage, ConcatPatternsPage } from "./Joins";
-import { FunnelPage, CohortPage, NormalizePage, FactDimPage } from "./Patterns";
-import { JsonDfPage, ChunkingPage, ParquetCsvPage, EvalQueryPage, IndexSpeedPage } from "./IO";
-import { McarMarMnarPage, VizMissingPage, ImputationPage, DuplicatesPage, StrAccessorPage, RegexExtractPage, OutliersPage } from "./Quality";
+/**
+ * Topic modules are loaded on demand. Every topic file pulls in its own data
+ * arrays and step scripts, so importing all 44 up front cost ~1.4 MB to render
+ * the one topic actually on screen. Each entry below names the module that
+ * holds a topic and the export inside it; `import()` per module means the nine
+ * topic files become nine chunks that arrive only when a student opens one.
+ */
+type TopicModule = Record<string, ComponentType>;
+type Loader = () => Promise<TopicModule>;
+
+const Foundations1: Loader = () => import("./Foundations1");
+const Foundations2: Loader = () => import("./Foundations2");
+const Vectorization: Loader = () => import("./Vectorization");
+const GroupBy: Loader = () => import("./GroupBy");
+const TimeSeries: Loader = () => import("./TimeSeries");
+const Reshaping: Loader = () => import("./Reshaping");
+const Joins: Loader = () => import("./Joins");
+const Patterns: Loader = () => import("./Patterns");
+const IO: Loader = () => import("./IO");
+const Quality: Loader = () => import("./Quality");
 
 /**
- * The one place a topic graduates from stub to built. App renders from it and
- * the sidebar reads its keys for the progress dots, so the two can't drift.
+ * The one place a topic graduates from stub to built: module loader + export
+ * name. App renders from it and the sidebar reads its keys for the progress
+ * dots, so the two can't drift — and reading the keys costs no network.
  */
-export const IMPLEMENTED: Partial<Record<PageId, ComponentType>> = {
-  "series-vs-df": SeriesVsDfPage,
-  "selection": SelectionPage,
-  "comprehensions": ComprehensionsPage,
-  "lambda-map-filter": LambdaMapFilterPage,
-  "filtering": FilteringPage,
-  "sorting-topn": SortingTopNPage,
-  "basic-agg": BasicAggPage,
-  "dates": DatesPage,
-  "missing-basics": MissingBasicsPage,
-  "chaining": ChainingPage,
-  "cut-qcut": CutQcutPage,
-  "vectorization": VectorizationPage,
-  "loop-vs-vec": LoopVsVecPage,
-  "groupby-mental": GroupByMentalPage,
-  "agg-patterns": AggPatternsPage,
-  "transform-apply-filter": TransformApplyFilterPage,
-  "multi-groupby": MultiGroupByPage,
-  "window-groups": WindowGroupsPage,
-  "resample": ResamplePage,
-  "rolling": RollingPage,
-  "shift-lag": ShiftLagPage,
-  "pivot-table": PivotTablePage,
-  "crosstab": CrosstabPage,
-  "melt": MeltPage,
-  "cohort": CohortPage,
-  "funnel": FunnelPage,
-  "normalize": NormalizePage,
-  "fact-dim": FactDimPage,
-  "join-types": JoinTypesPage,
-  "merge-join-concat": MergeJoinConcatPage,
-  "merge-mechanics": MergeMechanicsPage,
-  "concat-patterns": ConcatPatternsPage,
-  "json-df": JsonDfPage,
-  "chunking": ChunkingPage,
-  "parquet-csv": ParquetCsvPage,
-  "eval-query": EvalQueryPage,
-  "index-speed": IndexSpeedPage,
-  "mcar-mar-mnar": McarMarMnarPage,
-  "viz-missing": VizMissingPage,
-  "imputation": ImputationPage,
-  "duplicates": DuplicatesPage,
-  "str-accessor": StrAccessorPage,
-  "regex-extract": RegexExtractPage,
-  "outliers": OutliersPage,
+const SOURCES: Partial<Record<PageId, [Loader, string]>> = {
+  "series-vs-df": [Foundations1, "SeriesVsDfPage"],
+  "selection": [Foundations1, "SelectionPage"],
+  "comprehensions": [Foundations1, "ComprehensionsPage"],
+  "lambda-map-filter": [Foundations1, "LambdaMapFilterPage"],
+  "filtering": [Foundations1, "FilteringPage"],
+  "sorting-topn": [Foundations2, "SortingTopNPage"],
+  "basic-agg": [Foundations2, "BasicAggPage"],
+  "dates": [Foundations2, "DatesPage"],
+  "missing-basics": [Foundations2, "MissingBasicsPage"],
+  "chaining": [Foundations2, "ChainingPage"],
+  "cut-qcut": [Vectorization, "CutQcutPage"],
+  "vectorization": [Vectorization, "VectorizationPage"],
+  "loop-vs-vec": [Vectorization, "LoopVsVecPage"],
+  "groupby-mental": [GroupBy, "GroupByMentalPage"],
+  "agg-patterns": [GroupBy, "AggPatternsPage"],
+  "transform-apply-filter": [GroupBy, "TransformApplyFilterPage"],
+  "multi-groupby": [GroupBy, "MultiGroupByPage"],
+  "window-groups": [GroupBy, "WindowGroupsPage"],
+  "resample": [TimeSeries, "ResamplePage"],
+  "rolling": [TimeSeries, "RollingPage"],
+  "shift-lag": [TimeSeries, "ShiftLagPage"],
+  "pivot-table": [Reshaping, "PivotTablePage"],
+  "crosstab": [Reshaping, "CrosstabPage"],
+  "melt": [Reshaping, "MeltPage"],
+  "cohort": [Patterns, "CohortPage"],
+  "funnel": [Patterns, "FunnelPage"],
+  "normalize": [Patterns, "NormalizePage"],
+  "fact-dim": [Patterns, "FactDimPage"],
+  "join-types": [Joins, "JoinTypesPage"],
+  "merge-join-concat": [Joins, "MergeJoinConcatPage"],
+  "merge-mechanics": [Joins, "MergeMechanicsPage"],
+  "concat-patterns": [Joins, "ConcatPatternsPage"],
+  "json-df": [IO, "JsonDfPage"],
+  "chunking": [IO, "ChunkingPage"],
+  "parquet-csv": [IO, "ParquetCsvPage"],
+  "eval-query": [IO, "EvalQueryPage"],
+  "index-speed": [IO, "IndexSpeedPage"],
+  "mcar-mar-mnar": [Quality, "McarMarMnarPage"],
+  "viz-missing": [Quality, "VizMissingPage"],
+  "imputation": [Quality, "ImputationPage"],
+  "duplicates": [Quality, "DuplicatesPage"],
+  "str-accessor": [Quality, "StrAccessorPage"],
+  "regex-extract": [Quality, "RegexExtractPage"],
+  "outliers": [Quality, "OutliersPage"],
 };
 
-export const isImplemented = (id: PageId): boolean => id in IMPLEMENTED;
+/** id → suspense-ready component. `lazy` records the loader; it doesn't run it. */
+export const IMPLEMENTED = Object.fromEntries(
+  Object.entries(SOURCES).map(([id, [load, exportName]]) => [
+    id,
+    lazy(async () => ({ default: (await load())[exportName] })),
+  ]),
+) as Partial<Record<PageId, LazyExoticComponent<ComponentType>>>;
+
+export const isImplemented = (id: PageId): boolean => id in SOURCES;
+
+/**
+ * Warm a topic's chunk without rendering it. Module loads are cached by the
+ * browser, so calling this for the prev/next topic makes the common
+ * walk-the-curriculum path feel as instant as the old single bundle did.
+ */
+export function prefetchTopic(id: PageId | null): void {
+  if (!id) return;
+  void SOURCES[id]?.[0]().catch(() => {
+    /* A failed prefetch is not a user-visible error; the real render retries. */
+  });
+}

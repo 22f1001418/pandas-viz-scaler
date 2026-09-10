@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useStore, applyTheme } from "@/store/useStore";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { TopicNav } from "@/components/TopicNav";
-import { IMPLEMENTED } from "@/pages";
+import { IMPLEMENTED, prefetchTopic } from "@/pages";
 import { StubPage } from "@/pages/StubPage";
+import { TopicSkeleton } from "@/components/TopicSkeleton";
 import { neighbours, pageFromHash, writeHash } from "@/lib/routing";
 import { isTyping } from "@/lib/keys";
 
@@ -54,13 +55,31 @@ export default function App() {
     document.getElementById("topic-main")?.scrollTo({ top: 0 });
   }, [page]);
 
+  // Topic chunks load on demand, so warm the two a student is most likely to
+  // ask for next. Deferred to idle time so it never competes with the chunk
+  // actually being rendered.
+  useEffect(() => {
+    const { prev, next } = neighbours(page);
+    const warm = () => { prefetchTopic(next); prefetchTopic(prev); };
+    if (!window.requestIdleCallback) {
+      const t = window.setTimeout(warm, 400);
+      return () => clearTimeout(t);
+    }
+    const handle = window.requestIdleCallback(warm, { timeout: 2000 });
+    return () => window.cancelIdleCallback(handle);
+  }, [page]);
+
   return (
     <div className="h-screen flex">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <TopBar />
         <main id="topic-main" className="flex-1 overflow-y-auto">
-          <div key={page}>{Cmp ? <Cmp /> : <StubPage pageId={page} />}</div>
+          <div key={page}>
+            <Suspense fallback={<TopicSkeleton pageId={page} />}>
+              {Cmp ? <Cmp /> : <StubPage pageId={page} />}
+            </Suspense>
+          </div>
           <TopicNav />
         </main>
       </div>

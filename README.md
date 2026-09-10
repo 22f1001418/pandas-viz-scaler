@@ -94,6 +94,7 @@ pandas-visualizer/
 │   │   ├── StepRunner.tsx          # Glue: code + diagram + frames + bars + inspector
 │   │   ├── TopBar.tsx              # Breadcrumb, topic nav, shortcuts, theme toggle
 │   │   ├── TopicNav.tsx            # Prev/next topic footer
+│   │   ├── TopicSkeleton.tsx       # Suspense fallback while a topic chunk loads
 │   │   └── diagrams/
 │   │       ├── index.tsx           # DIAGRAMS registry, keyed by Step.diagram
 │   │       ├── Venn.tsx            # inner/left/right/outer/cross
@@ -103,7 +104,7 @@ pandas-visualizer/
 │   │       └── Funnel.tsx          # stage-over-stage conversion
 │   ├── pages/
 │   │   ├── registry.ts            # All 44 topics: metadata, sections, W/W/H context
-│   │   ├── index.ts               # IMPLEMENTED map — the stub/built source of truth
+│   │   ├── index.ts               # SOURCES map — the stub/built source of truth, lazily loaded
 │   │   ├── Foundations1.tsx        # Series, Selection, Comprehensions, Lambda, Filtering
 │   │   ├── Foundations2.tsx        # Sorting, Agg, Dates, Missing, Chaining
 │   │   ├── Vectorization.tsx       # cut/qcut, Vectorization, Loop vs Vec
@@ -119,13 +120,14 @@ pandas-visualizer/
 │   │   └── useStepAnimation.ts    # Step progression via setInterval
 │   ├── lib/
 │   │   ├── dataframe.ts           # df(), series(), withIndex, withColumnGroups, hl* helpers
+│   │   ├── icons.ts               # Topic icons imported by name (keeps lucide tree-shakeable)
 │   │   ├── routing.ts             # Hash routing, curriculum order, prev/next topic
 │   │   └── keys.ts                # Guards so shortcuts stand down while typing
 │   ├── store/
 │   │   └── useStore.ts            # Zustand: page, theme, sidebar
 │   ├── types/
 │   │   └── index.ts               # DataFrame, Step, HighlightMap, PageMeta, etc.
-│   ├── App.tsx                    # Hash routing + global shortcuts; renders topic or stub
+│   ├── App.tsx                    # Hash routing, shortcuts, Suspense boundary, chunk prefetch
 │   ├── main.tsx                   # React root
 │   └── index.css                  # Scaler theme (indigo-teal palette, dark sidebar)
 ├── index.html
@@ -155,7 +157,10 @@ npm run build
 npm run preview    # test the production bundle locally
 ```
 
-Output goes to `dist/` — a single HTML file, one JS bundle (~270KB gzipped), one CSS file (~5KB gzipped).
+Output goes to `dist/` — one HTML file, one CSS file (~6KB gzipped) and code-split JS:
+an app shell (~103KB gzipped), a shared `StepRunner` chunk (~36KB), and one chunk per topic
+file (5–13KB each). Opening a topic pulls the shell plus its own chunk — around 145KB gzipped,
+against 336KB when every topic shipped in a single bundle.
 
 ## Deploy to Render.com
 
@@ -264,7 +269,10 @@ silent row drop in an inner join, the blanked MultiIndex labels that become empt
 2. Add a `PageMeta` entry in `src/pages/registry.ts` with icon, section, and W/W/H context
 3. Add the page ID to the appropriate section in `SECTIONS` array
 4. Create the page component (or add to an existing section file)
-5. Register it in the `IMPLEMENTED` map in `src/pages/index.ts` (this also flips its sidebar progress dot)
+5. Register it in the `SOURCES` map in `src/pages/index.ts` — module loader plus export name
+   (this also flips its sidebar progress dot)
+6. If its `icon` is new, add it to `src/lib/icons.ts` — icons are imported by name so the rest of
+   the lucide set stays out of the bundle
 
 Each page follows the same pattern: define a `Step[]` array → pass to `<StepRunner />` → wrap in
 `<PageShell />`. Each step carries `views` (frames plus highlights), an `explain` string, optional
@@ -275,7 +283,16 @@ above for what a step can draw.
 
 ## Architecture notes
 
-- **No real Python execution**: pandas operations are visualized by hand-written step arrays, not by running Python. This keeps the bundle tiny (~270KB gzipped) and gives tight control over animations. If real execution is ever needed, Pyodide can be dynamically imported per page.
+- **No real Python execution**: pandas operations are visualized by hand-written step arrays, not by running Python. This keeps the payload small and gives tight control over animations. If real execution is ever needed, Pyodide can be dynamically imported per page.
+- **Code splitting**: `src/pages/index.ts` maps each topic id to a `() => import(...)` loader plus an
+  export name, wrapped in `React.lazy`. `isImplemented` reads that map's keys, so the sidebar's
+  progress dots cost no network. `App` renders topics inside a `<Suspense>` whose fallback is
+  `TopicSkeleton` — the real header and What/Why/How context from the eager registry, with the
+  visualization area stood in for. Prev/next chunks are warmed on `requestIdleCallback`, so walking
+  the curriculum stays instant.
+- **Icons by name** (`src/lib/icons.ts`): topic icons are imported individually. The earlier
+  `import * as Icons` with a dynamic `Icons[meta.icon]` lookup defeated tree-shaking and dragged the
+  entire lucide set (~750KB) into the bundle.
 - **DataFrame model** (`src/types/index.ts`): a minimal JS object — `{ columns, index, data }` — just enough to render and animate. Not a full pandas reimplementation.
 - **Highlight system**: a `HighlightMap` of `"row:col" → kind` strings drives cell-level coloring. Wildcards (`"2:*"` for whole row, `"*:1"` for whole column) and helpers (`hlRows`, `hlCols`, `hlMerge`) make it concise to build highlight maps.
 - **Step animation**: `useStepAnimation` hook uses `setInterval` for auto-play with play/pause/seek. Framer Motion handles the visual interpolation (spring physics for row entrance, layout animations for reordering).

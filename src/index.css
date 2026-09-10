@@ -191,3 +191,8 @@ code.il { font-family: "JetBrains Mono", monospace; font-size: 11.5px; padding: 
 .perf-bar--slow    { background: linear-gradient(90deg, var(--red), var(--amber)); }
 .perf-bar--fast    { background: linear-gradient(90deg, var(--teal), var(--green)); }
 .perf-bar--neutral { background: var(--accent); }
+
+/* Placeholder blocks shown while a topic's chunk is in flight. */
+.skeleton { background: var(--s2); border-radius: 8px; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+@keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }

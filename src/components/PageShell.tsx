@@ -1,12 +1,12 @@
 import { motion } from "framer-motion";
-import * as Icons from "lucide-react";
+import { topicIcon } from "@/lib/icons";
 import type { ReactNode } from "react";
 import type { PageMeta } from "@/types";
 
 interface Props { meta: PageMeta; children: ReactNode; }
 
 export function PageShell({ meta, children }: Props) {
-  const Icon = (Icons[meta.icon as keyof typeof Icons] as Icons.LucideIcon | undefined) ?? Icons.Sparkles;
+  const Icon = topicIcon(meta.icon);
   return (
     <motion.div key={meta.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .25 }}
       className="flex flex-col gap-6 max-w-[1280px] mx-auto px-6 py-6 w-full">

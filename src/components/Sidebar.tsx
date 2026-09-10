@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as Icons from "lucide-react";
+import { Search, X } from "lucide-react";
+import { topicIcon } from "@/lib/icons";
 import { useStore } from "@/store/useStore";
 import { PAGES, SECTIONS } from "@/pages/registry";
 import { isImplemented } from "@/pages";
@@ -53,7 +54,7 @@ export function Sidebar() {
 
         <div className="px-3 pb-2 pt-1">
           <div className="sb-search">
-            <Icons.Search size={13} />
+            <Search size={13} />
             <input
               ref={inputRef}
               value={query}
@@ -67,7 +68,7 @@ export function Sidebar() {
               spellCheck={false}
             />
             {query
-              ? <button className="sb-search__clear" onClick={() => setQuery("")} aria-label="Clear search"><Icons.X size={12} /></button>
+              ? <button className="sb-search__clear" onClick={() => setQuery("")} aria-label="Clear search"><X size={12} /></button>
               : <kbd className="sb-kbd">/</kbd>}
           </div>
         </div>
@@ -78,7 +79,7 @@ export function Sidebar() {
               <div className="sb-section">{sec.label}</div>
               {sec.pages.map((id) => {
                 const meta = PAGES[id];
-                const Ic = (Icons[meta.icon as keyof typeof Icons] as Icons.LucideIcon | undefined) ?? Icons.Circle;
+                const Ic = topicIcon(meta.icon);
                 const active = id === page;
                 const done = isImplemented(id);
                 return (
