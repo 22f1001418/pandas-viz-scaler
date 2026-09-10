@@ -118,80 +118,179 @@ df.loc["Espresso":"Cappuccino"]     # label slice → INCLUSIVE at both ends`} s
 // ═══ 3. Comprehensions ═════════════════════════════════════
 
 export function ComprehensionsPage() {
-  const origCols = df({ columns: ["drink", "size", "price", "qty", "rating"] });
-  const upperCols = df({ columns: ["DRINK", "SIZE", "PRICE", "QTY", "RATING"] });
+  const COLS = ["drink", "size", "price", "qty", "rating"];
+  const origCols = df({ columns: COLS });
+  const upperCols = df({ columns: COLS.map((c) => c.toUpperCase()) });
+
+  const messy = ["  Order ID ", "Customer Name", "TOTAL amount "];
+  const tidy = messy.map((c) => c.trim().toLowerCase().replace(/ /g, "_"));
+  const renameFrame = df({ before: messy, after: tidy });
+
+  const numericCols = df({
+    column: COLS,
+    dtype: ["object", "object", "int64", "int64", "float64"],
+    is_numeric: [false, false, true, true, true],
+  });
 
   const steps: Step[] = [
-    { id: "list", label: "List comprehension", views: [
-        { frame: df({ squared: [0, 1, 4, 9, 16, 25, 36, 49] }), title: "[x**2 for x in range(8)]", badge: "8 elements" },
-      ], explain: "One line builds a list from an iterable. [expression for variable in iterable]. Replaces a 3-line for-loop." },
-    { id: "filter", label: "With condition", views: [
-        { frame: df({ even_sq: [0, 4, 16, 36] }), title: "[x**2 for x in range(8) if x % 2 == 0]", badge: "filtered" },
-      ], explain: "Add 'if condition' at the end to filter. Only elements where x % 2 == 0 survive. Equivalent to filter() + map()." },
-    { id: "dict", label: "Dict comp for rename", views: [
-        { frame: origCols, title: "original columns", badge: "lowercase" },
-        { frame: upperCols, title: "after rename", badge: "UPPERCASE", highlights: { "*:0": "changed" } },
-      ], explain: "Dict comprehension builds a mapping in one line: {col: col.upper() for col in df.columns}. Pass it to df.rename(columns=...) for a clean bulk rename.",
-      variables: [{ name: "rename_map", type: "dict", preview: "{'drink':'DRINK', 'size':'SIZE', ...}" }] },
+    {
+      id: "loop", label: "The loop it replaces",
+      views: [{ frame: df({ squared: [0, 1, 4, 9] }), title: "the long way", badge: "3 lines" }],
+      explain: "out = []; for x in range(8): out.append(x**2). Three lines, a throwaway variable, and the intent buried in the middle. A comprehension says the same thing in one line where the shape of the result is visible immediately.",
+    },
+    {
+      id: "list", label: "List comprehension",
+      views: [{ frame: df({ squared: [0, 1, 4, 9, 16, 25, 36, 49] }), title: "[x**2 for x in range(8)]", badge: "8 elements" }],
+      explain: "Read it as: the expression, then where the values come from. [expression for variable in iterable]. The result is always a new list - the input is untouched.",
+    },
+    {
+      id: "filter", label: "Add a condition",
+      views: [{ frame: df({ even_sq: [0, 4, 16, 36] }), title: "[x**2 for x in range(8) if x % 2 == 0]", highlights: { "*:0": "mask-true" }, badge: "4 survive" }],
+      explain: "A trailing if filters the input before the expression runs. Order matters when reading: the if applies to x, not to x**2. Filtering on the OUTPUT needs a different shape - build it first, then filter.",
+    },
+    {
+      id: "ternary", label: "A conditional value is different",
+      views: [{ frame: df({ label: ["even", "odd", "even", "odd"] }), title: "['even' if x % 2 == 0 else 'odd' for x in range(4)]", badge: "if BEFORE for" }],
+      explain: "Two different ifs. A trailing if drops elements; an if/else BEFORE the for chooses between values and keeps every element. Same keyword, opposite effect on the length of the result - this is the comprehension mistake people make most.",
+    },
+    {
+      id: "dict", label: "Dict comprehension for rename",
+      views: [
+        { frame: origCols, title: "df.columns", badge: "lowercase" },
+        { frame: upperCols, title: "after rename", highlights: { "*:0": "changed" }, badge: "UPPERCASE" },
+      ],
+      explain: "{key: value for item in iterable} builds a mapping. df.rename(columns={c: c.upper() for c in df.columns}) renames every column in one expression, with no list of hand-typed pairs to fall out of date.",
+      variables: [{ name: "rename_map", type: "dict", preview: "{'drink': 'DRINK', 'size': 'SIZE', ...}" }],
+    },
+    {
+      id: "clean", label: "The real-world version",
+      views: [{ frame: renameFrame, title: "cleaning messy headers", highlights: hlMerge(hlCols([1], 3, "new"), hlHeaders([1], "new")), badge: "strip, lower, underscore" }],
+      explain: "This is the comprehension you will actually write most: normalising column names off a spreadsheet export. Strip the whitespace, lowercase, swap spaces for underscores - and now df.order_id works instead of df['  Order ID '].",
+    },
+    {
+      id: "select-cols", label: "Selecting columns by a rule",
+      views: [{ frame: numericCols, title: "[c for c in df.columns if df[c].dtype != 'object']", highlights: hlCols([2], 5, "mask-true"), badge: "a column list" }],
+      explain: "Comprehensions over df.columns are how you build column lists by rule rather than by hand - every numeric column, everything ending in _id, everything except the keys. The result goes straight into df[cols].",
+      variables: [{ name: "num_cols", type: "list", preview: "['price', 'qty', 'rating']" }],
+    },
+    {
+      id: "limit", label: "Where to stop",
+      views: [{ frame: numericCols, title: "not for row data", highlights: { "*:*": "drop" }, badge: "use vectorization" }],
+      explain: "Comprehensions are for METADATA - column names, small lists, rename maps. Running one over a data column ([x * 2 for x in df['price']]) is a Python loop wearing a costume, and it is a thousand times slower than df['price'] * 2. Comprehensions for structure, vectorization for data.",
+    },
   ];
 
   return (
     <PageShell meta={PAGES["comprehensions"]}>
-      <StepRunner runId="comprehensions" code={`# List comprehension
-squares = [x**2 for x in range(8)]
+      <StepRunner runId="comprehensions" steps={steps} code={`squares = [x**2 for x in range(8)]                    # expression, then source
+evens   = [x**2 for x in range(8) if x % 2 == 0]      # trailing if: FILTERS
+labels  = ["even" if x % 2 == 0 else "odd" for x in range(8)]   # if/else: CHOOSES
 
-# With filter
-even_squares = [x**2 for x in range(8) if x % 2 == 0]
+# Metadata work - this is where comprehensions earn their place
+df = df.rename(columns={c: c.strip().lower().replace(" ", "_") for c in df.columns})
 
-# Dict comprehension → pandas rename
-rename_map = {col: col.upper() for col in df.columns}
-df = df.rename(columns=rename_map)`} steps={steps} />
+num_cols = [c for c in df.columns if df[c].dtype != "object"]
+df[num_cols].describe()
+
+# NOT for row data - this is a Python loop in disguise, ~1000x slower
+# df["double"] = [x * 2 for x in df["price"]]
+df["double"] = df["price"] * 2`} />
     </PageShell>
   );
 }
 
-// ═══ 4. Lambda, map, filter ════════════════════════════════
-
 export function LambdaMapFilterPage() {
-  const grades = df({
-    drink: ["Latte", "Espresso", "Mocha", "Cappuccino", "Americano", "Cold Brew"],
-    price: [280, 180, 320, 250, 200, 300],
-    tier: ["Premium", "Budget", "Premium", "Standard", "Standard", "Premium"],
-  });
-  const tierHl: HighlightMap = {};
-  for (let r = 0; r < 6; r++) tierHl[`${r}:2`] = "new";
+  const DRINK = ["Latte", "Espresso", "Mocha", "Cappuccino", "Americano", "Cold Brew"];
+  const PRICE = [280, 180, 320, 250, 200, 300];
+  const SIZE = ["L", "S", "L", "M", "M", "L"];
+
+  const tierOf = (p: number) => (p >= 280 ? "Premium" : p >= 200 ? "Standard" : "Budget");
+  const grades = df({ drink: DRINK, price: PRICE, tier: PRICE.map(tierOf) });
+
+  const SIZE_MAP: Record<string, string> = { S: "Small", M: "Medium", L: "Large" };
+  const mapped = df({ size: SIZE, full_size: SIZE.map((s) => SIZE_MAP[s]) });
+  const missingMap = df({ size: ["L", "S", "XL"], full_size: ["Large", "Small", null] });
 
   const filtered = df({
     drink: ["Latte", "Mocha", "Cappuccino", "Cold Brew"],
     price: [280, 320, 250, 300],
   });
 
+  const npWhere = df({ drink: DRINK, price: PRICE, tier: PRICE.map(tierOf) });
+
   const steps: Step[] = [
-    { id: "lambda", label: "lambda → apply", views: [
-        { frame: grades, title: "df", highlights: tierHl, badge: "+ tier column" },
-      ], explain: "lambda p: 'Premium' if p >= 280 else 'Standard' if p >= 200 else 'Budget'. This anonymous function runs once per price value via .apply()." },
-    { id: "filter", label: "filter() equivalent", views: [
+    {
+      id: "lambda", label: "lambda is just a function",
+      views: [{ frame: df({ input: [180, 250, 320], output: ["Budget", "Standard", "Premium"] }), title: "lambda p: ...", badge: "one expression, no name" }],
+      explain: "lambda x: <expression> is a function with no name and no return statement - the expression IS the return value. That is the whole feature. It exists so you can pass a small function somewhere without defining one above.",
+    },
+    {
+      id: "apply", label: "apply runs it per element",
+      views: [{ frame: grades, title: "df['price'].apply(lambda p: ...)", highlights: hlMerge(hlCols([2], 6, "new"), hlHeaders([2], "new")), badge: "+ tier column" }],
+      explain: ".apply calls your function once for every value and collects the results. It is the universal escape hatch - anything you can express in Python, you can apply. That flexibility is also its cost: a Python call per row.",
+    },
+    {
+      id: "map-dict", label: "Series.map takes a dict",
+      views: [{ frame: mapped, title: "df['size'].map({'S':'Small', 'M':'Medium', 'L':'Large'})", highlights: hlMerge(hlCols([1], 6, "new"), hlHeaders([1], "new")), badge: "lookup, not a function" }],
+      explain: "For a straight value-to-value translation, skip the lambda entirely and hand map a dict. It is faster than apply, and the mapping is data you can inspect, reuse, and store in a config file rather than logic buried in a lambda.",
+    },
+    {
+      id: "map-missing", label: "Unmapped values become NaN",
+      views: [{ frame: missingMap, title: "'XL' is not in the dict", highlights: { "2:1": "null" }, badge: "silent NaN" }],
+      explain: "A value missing from the dict maps to NaN - no error, no warning. Check with .isna().sum() afterwards, or use .replace() instead, which leaves unmatched values alone rather than blanking them.",
+    },
+    {
+      id: "filter", label: "Python filter vs a boolean mask",
+      views: [
         { frame: COFFEE, title: "df", highlights: hlMerge(hlRows([0, 2, 3, 5], 5, "mask-true"), hlRows([1, 4], 5, "mask-false")), badge: "price >= 250" },
-        { frame: filtered, title: "after filter", badge: "4 rows kept" },
-      ], explain: "Python's filter(fn, iterable) keeps truthy elements. In pandas: df[df['price'] >= 250] is the vectorized equivalent — faster and more readable." },
-    { id: "map", label: "map → Series.map", views: [
-        { frame: df({ size: ["L", "S", "L", "M", "M", "L"], full_size: ["Large", "Small", "Large", "Medium", "Medium", "Large"] }),
-          title: "map lookup", highlights: hlCols([1], 6, "new"), badge: "dict mapping" },
-      ], explain: "Series.map({'S':'Small', 'M':'Medium', 'L':'Large'}) is the pandas way. It replaces each value with its dict lookup. Unmapped values become NaN." },
+        { frame: filtered, title: "df[df['price'] >= 250]", badge: "4 rows" },
+      ],
+      explain: "Python's filter(fn, iterable) has a pandas equivalent you should use instead: a boolean mask. df[df['price'] >= 250] is vectorized, reads better, and keeps the index intact. filter() on a Series works and is simply worse.",
+    },
+    {
+      id: "vectorize", label: "Most lambdas have a faster twin",
+      views: [{ frame: npWhere, title: "np.select instead of apply", highlights: hlMerge(hlCols([2], 6, "new"), hlHeaders([2], "new")), badge: "same column, no Python" }],
+      explain: "That tier lambda is a chain of conditions, and np.select expresses it without per-row Python. Identical output, roughly 100x faster on a large frame. Before reaching for apply, check whether np.where, np.select, .map, .str or .dt already covers it.",
+      bars: {
+        title: "Deriving tier on 1M rows",
+        bars: [
+          { label: "apply(lambda)", value: 2800, display: "2.8 s", tone: "slow" },
+          { label: "np.select", value: 24, display: "24 ms", tone: "fast" },
+        ],
+      },
+    },
+    {
+      id: "axis", label: "apply(axis=1) is the slow one",
+      views: [{ frame: grades, title: "df.apply(lambda r: ..., axis=1)", highlights: { "*:*": "drop" }, badge: "a Series per row" }],
+      explain: "Applying across rows builds a whole Series object for every row before your function even runs. If the function only combines a few columns, do the arithmetic on the columns directly - df['price'] * df['qty'] rather than a row lambda that multiplies two fields.",
+    },
+    {
+      id: "when", label: "When a lambda is right",
+      views: [{ frame: grades, title: "genuinely irregular logic", badge: "the honest use" }],
+      explain: "Some things have no vectorized form: calling an external API, parsing an irregular string, logic with real branching. Use apply there without guilt - and name the function instead of inlining a lambda once it needs a comment. Readable beats clever when the operation is slow either way.",
+    },
   ];
 
   return (
     <PageShell meta={PAGES["lambda-map-filter"]}>
-      <StepRunner runId="lambda-map-filter" code={`# lambda with .apply()
+      <StepRunner runId="lambda-map-filter" steps={steps} code={`# lambda = an unnamed function whose expression IS the return value
 df["tier"] = df["price"].apply(
     lambda p: "Premium" if p >= 280 else "Standard" if p >= 200 else "Budget"
 )
 
-# Vectorized filter (better than Python's filter())
-expensive = df[df["price"] >= 250]
+# Same result, no Python per row - ~100x faster
+df["tier"] = np.select(
+    [df["price"] >= 280, df["price"] >= 200], ["Premium", "Standard"], default="Budget"
+)
 
-# Series.map for lookup
-df["full_size"] = df["size"].map({"S": "Small", "M": "Medium", "L": "Large"})`} steps={steps} />
+df["full_size"] = df["size"].map({"S": "Small", "M": "Medium", "L": "Large"})
+df["full_size"].isna().sum()      # unmapped values became NaN, silently
+
+expensive = df[df["price"] >= 250]     # a mask, not filter()
+
+# axis=1 builds a Series per row - avoid when column arithmetic would do
+# df.apply(lambda r: r["price"] * r["qty"], axis=1)
+df["price"] * df["qty"]`} />
     </PageShell>
   );
 }
