@@ -12,7 +12,7 @@
   --bg: #f8f7f3; --s1: #ffffff; --s2: #f1efe9; --s3: #e7e3d8;
   --border: #e4dfd1; --border-strong: #c9c2ad;
   --fg: #0f172a; --fg-muted: #475569; --fg-subtle: #94a3b8;
-  --accent: #1e40af; --accent-soft: rgba(30,64,175,.10);
+  --accent: #1e40af; --accent-soft: rgba(30,64,175,.10); --accent-fg: #ffffff;
   --pink: #be185d; --pink-soft: rgba(190,24,93,.10);
   --teal: #0f766e; --teal-soft: rgba(15,118,110,.10);
   --amber: #b45309; --amber-soft: rgba(180,83,9,.10);
@@ -28,6 +28,33 @@
   --sidebar-bg: #1e3a8a; --sidebar-fg: #f8f7f3; --sidebar-muted: #c5d0ee;
   --sidebar-border: #2547a8; --sidebar-accent: #fbbf24; --sidebar-accent-soft: rgba(251,191,36,.18);
 }
+
+
+/* ─── Dark theme ─────────────────────────────────────────────
+   Same variable names, deeper values. No component code differs
+   between themes — everything below resolves through these. */
+:root.dark {
+  color-scheme: dark;
+  --bg: #0f1420; --s1: #161c2b; --s2: #1e2637; --s3: #29334a;
+  --border: #29334a; --border-strong: #3d4a66;
+  --fg: #e8ecf5; --fg-muted: #9aa8c2; --fg-subtle: #6b7a96;
+  --accent: #7f9cf5; --accent-soft: rgba(127,156,245,.16); --accent-fg: #0f1420;
+  --pink: #f472b6; --pink-soft: rgba(244,114,182,.16);
+  --teal: #2dd4bf; --teal-soft: rgba(45,212,191,.16);
+  --amber: #fbbf24; --amber-soft: rgba(251,191,36,.16);
+  --red: #f87171; --red-soft: rgba(248,113,113,.16);
+  --green: #4ade80; --green-soft: rgba(74,222,128,.16);
+  --grp-a: #7f9cf5; --grp-a-soft: rgba(127,156,245,.18);
+  --grp-b: #f472b6; --grp-b-soft: rgba(244,114,182,.18);
+  --grp-c: #2dd4bf; --grp-c-soft: rgba(45,212,191,.18);
+  --grp-d: #fbbf24; --grp-d-soft: rgba(251,191,36,.18);
+  --grp-e: #c4b5fd; --grp-e-soft: rgba(196,181,253,.18);
+  --code-bg: #131926; --code-fg: #e8ecf5;
+  --code-gutter: #1b2233; --code-gutter-fg: #6b7a96;
+  --sidebar-bg: #0b1220; --sidebar-fg: #e8ecf5; --sidebar-muted: #8fa0c0;
+  --sidebar-border: #1e2942; --sidebar-accent: #fbbf24; --sidebar-accent-soft: rgba(251,191,36,.16);
+}
+:root.dark .card { box-shadow: 0 1px 2px 0 rgb(0 0 0 / .35); }
 
 /* ─── Base ───────────────────────────────────────────────── */
 html, body, #root { height: 100%; }
@@ -60,7 +87,7 @@ body {
 .btn:hover { background: var(--s2); border-color: var(--border-strong); }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
-.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .btn-primary:hover { filter: brightness(.92); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--fg-muted); }
 .btn-ghost:hover { background: var(--s2); color: var(--fg); }
@@ -130,3 +157,20 @@ body {
 
 /* ─── Inline code ────────────────────────────────────────── */
 code.il { font-family: "JetBrains Mono", monospace; font-size: 11.5px; padding: 1px 5px; border-radius: 4px; background: var(--s2); border: 1px solid var(--border); color: var(--accent); }
+
+/* ─── Card used as a link (topic prev/next) ──────────────── */
+.card-link { cursor: pointer; transition: background-color 180ms ease, border-color 180ms ease; text-align: inherit; }
+.card-link:hover { background: var(--s2); border-color: var(--border-strong); }
+
+/* ─── Sidebar search + progress dots ─────────────────────── */
+.sb-search { display: flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 8px; background: var(--sidebar-accent-soft); border: 1px solid var(--sidebar-border); color: var(--sidebar-muted); }
+.sb-search input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; font-size: 12.5px; color: var(--sidebar-fg); }
+.sb-search input::placeholder { color: var(--sidebar-muted); }
+.sb-search__clear { display: grid; place-items: center; border: none; background: transparent; color: var(--sidebar-muted); cursor: pointer; padding: 2px; border-radius: 4px; }
+.sb-search__clear:hover { color: var(--sidebar-fg); }
+.sb-kbd { font-family: "JetBrains Mono", monospace; font-size: 10px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--sidebar-border); color: var(--sidebar-muted); }
+.sb-dot { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; border: 1px solid var(--sidebar-muted); opacity: .55; }
+.sb-dot--done { background: var(--sidebar-accent); border-color: var(--sidebar-accent); opacity: 1; }
+
+/* ─── Keyboard hint ──────────────────────────────────────── */
+.kbd { font-family: "JetBrains Mono", monospace; font-size: 10.5px; min-width: 42px; text-align: center; padding: 2px 6px; border-radius: 5px; background: var(--s2); border: 1px solid var(--border); color: var(--fg-muted); }

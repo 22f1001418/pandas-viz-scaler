@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useStepAnimation } from "@/hooks/useStepAnimation";
 import { AnimationControls } from "./AnimationControls";
 import { CodeCell } from "./CodeCell";
@@ -6,6 +6,7 @@ import { DataFrameView } from "./DataFrameView";
 import { Inspector } from "./Inspector";
 import type { Step } from "@/types";
 import type { ReactNode } from "react";
+import { isActivatable, isTyping } from "@/lib/keys";
 
 interface Props {
   runId: string;
@@ -21,6 +22,22 @@ interface Props {
 export function StepRunner({ runId, code, activeLineByStep, steps, layoutId = "dfl", interval = 1300, renderDiagram }: Props) {
   const { step, isPlaying, play, pause, next, prev, reset, goTo } =
     useStepAnimation({ totalSteps: steps.length, resetKey: runId, interval });
+
+  // Step through with the keyboard: ← → step, Space plays, R restarts.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+      if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); next(); }
+      else if (e.key === " ") {
+        if (isActivatable(e.target)) return; // the focused button handles it
+        e.preventDefault();
+        isPlaying ? pause() : play();
+      } else if (e.key === "r" || e.key === "R") { reset(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isPlaying, play, pause, next, prev, reset]);
 
   const current = steps[step] ?? steps[0];
   const activeLine = activeLineByStep?.[step];
@@ -63,7 +80,7 @@ export function StepRunner({ runId, code, activeLineByStep, steps, layoutId = "d
       </div>
 
       <div className="lg:sticky lg:top-4 self-start">
-        <Inspector explain={current.explain} variables={current.variables} stepLabel={current.label} />
+        <Inspector explain={current.explain} variables={current.variables} stepLabel={current.label} stepKey={step} />
       </div>
     </div>
   );
