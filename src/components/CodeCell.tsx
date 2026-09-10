@@ -1,4 +1,5 @@
 import { Highlight, themes } from "prism-react-renderer";
+import { useStore } from "@/store/useStore";
 
 interface Props {
   code: string; count?: number; kind?: "in" | "out";
@@ -6,7 +7,8 @@ interface Props {
 }
 
 export function CodeCell({ code, count = 1, kind = "in", activeLine, active = false }: Props) {
-  const prismTheme = themes.oneLight;
+  const dark = useStore((s) => s.theme === "dark");
+  const prismTheme = dark ? themes.nightOwl : themes.oneLight;
   const prompt = kind === "in" ? `In [${count}]:` : `Out[${count}]:`;
   const promptCls = kind === "in" ? "nb-cell__prompt-in" : "nb-cell__prompt-out";
 

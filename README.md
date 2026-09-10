@@ -83,29 +83,32 @@ pandas-visualizer/
 ├── src/
 │   ├── components/
 │   │   ├── AnimationControls.tsx   # Play/pause/scrubber bar
-│   │   ├── CodeCell.tsx            # Syntax-highlighted notebook cell
+│   │   ├── CodeCell.tsx            # Syntax-highlighted notebook cell (theme-aware)
 │   │   ├── DataFrameView.tsx       # Animated table with highlight maps
 │   │   ├── Inspector.tsx           # Right-rail debugger panel
 │   │   ├── PageShell.tsx           # What/Why/How header + layout
-│   │   ├── Sidebar.tsx             # Dark left nav with sections
+│   │   ├── Sidebar.tsx             # Dark left nav: search, sections, progress dots
 │   │   ├── StepRunner.tsx          # Glue: code + frames + controls + inspector
-│   │   └── TopBar.tsx              # Breadcrumb + theme toggle
+│   │   ├── TopBar.tsx              # Breadcrumb, topic nav, shortcuts, theme toggle
+│   │   └── TopicNav.tsx            # Prev/next topic footer
 │   ├── pages/
 │   │   ├── registry.ts            # All 44 topics: metadata, sections, W/W/H context
+│   │   ├── index.ts               # IMPLEMENTED map — the stub/built source of truth
 │   │   ├── Foundations1.tsx        # Topics 1–5 (Series, Selection, Comprehensions, Lambda, Filtering)
 │   │   ├── Foundations2.tsx        # Topics 6–10 (Sorting, Agg, Dates, Missing, Chaining)
 │   │   ├── Vectorization.tsx       # Topics 11–13 (cut/qcut, Vectorization, Loop vs Vec)
 │   │   └── StubPage.tsx           # Placeholder for topics not yet visualized
-│   ├── data/                      # (datasets defined inline per page file)
 │   ├── hooks/
 │   │   └── useStepAnimation.ts    # Step progression via setInterval
 │   ├── lib/
-│   │   └── dataframe.ts           # df(), cloneFrame, takeRows, hlRows, hlCols, formatCell
+│   │   ├── dataframe.ts           # df(), cloneFrame, takeRows, hlRows, hlCols, formatCell
+│   │   ├── routing.ts             # Hash routing, curriculum order, prev/next topic
+│   │   └── keys.ts                # Guards so shortcuts stand down while typing
 │   ├── store/
 │   │   └── useStore.ts            # Zustand: page, theme, sidebar
 │   ├── types/
 │   │   └── index.ts               # DataFrame, Step, HighlightMap, PageMeta, etc.
-│   ├── App.tsx                    # Routes by page ID (implemented → component, else → StubPage)
+│   ├── App.tsx                    # Hash routing + global shortcuts; renders topic or stub
 │   ├── main.tsx                   # React root
 │   └── index.css                  # Scaler theme (indigo-teal palette, dark sidebar)
 ├── index.html
@@ -150,11 +153,28 @@ The `public/_redirects` file is already configured for SPA routing (all paths se
 
 ---
 
+## Navigation & keyboard
+
+Every topic has its own URL — `#/pivot-table`, `#/join-types` — so links are shareable, reloads keep your place, and browser back/forward walk your history.
+
+| Key | Action |
+|---|---|
+| `←` `→` | Previous / next step |
+| `Space` | Play or pause |
+| `R` | Restart from step 1 |
+| `[` `]` | Previous / next topic |
+| `/` | Focus topic search |
+| `T` | Toggle light/dark |
+
+The sidebar filters as you type (`Enter` jumps to the first match, `Esc` clears). A dot on each entry marks whether that topic has a full visualization or context only, and the footer tracks overall progress. Prev/next cards at the bottom of each page walk the curriculum in order.
+
+---
+
 ## Theme system
 
-The app supports **light and dark modes** via CSS custom properties on `<html class="dark|light">`. Toggle from the top bar (sun/moon icon). The sidebar is always dark regardless of theme.
+Light and dark modes are driven entirely by CSS custom properties, with `dark` toggled on `<html>`. Switch from the top bar (sun/moon) or press `T`. The choice persists in `localStorage`; with no stored choice the app follows the OS via `prefers-color-scheme`. An inline script in `index.html` paints the theme before React mounts, so a dark-mode reload never flashes white. The sidebar is dark in both themes.
 
-All colors reference CSS variables (`--accent`, `--fg`, `--s1`, etc.) defined in `src/index.css`. To rebrand, change the variables — no component code needs touching.
+Every color resolves through a variable (`--accent`, `--fg`, `--s1`, …) defined in `src/index.css`. Dark mode redefines the same names under `:root.dark` — no component code differs between themes, so rebranding means editing two variable blocks and nothing else.
 
 **Palette**: Indigo primary (`#6366f1`), teal for "How" context, pink for "Why" context and changed-cell highlights, amber for warnings/NaN.
 
@@ -178,7 +198,7 @@ All remaining topics are navigable via the sidebar. Each shows the What/Why/How 
 2. Add a `PageMeta` entry in `src/pages/registry.ts` with icon, section, and W/W/H context
 3. Add the page ID to the appropriate section in `SECTIONS` array
 4. Create the page component (or add to an existing section file)
-5. Register it in `IMPLEMENTED` map in `src/App.tsx`
+5. Register it in the `IMPLEMENTED` map in `src/pages/index.ts` (this also flips its sidebar progress dot)
 
 Each page follows the same pattern: define a `Step[]` array with frames, highlights, and explanations → pass to `<StepRunner />` → wrap in `<PageShell />`.
 
