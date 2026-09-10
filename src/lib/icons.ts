@@ -100,3 +100,8 @@ const TOPIC_ICONS: Record<string, LucideIcon> = {
 export function topicIcon(name: string): LucideIcon {
   return TOPIC_ICONS[name] ?? Sparkles;
 }
+
+/** False when a registry icon name would silently fall back to Sparkles. */
+export function hasTopicIcon(name: string): boolean {
+  return name in TOPIC_ICONS;
+}

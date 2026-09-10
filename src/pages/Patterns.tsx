@@ -1,7 +1,7 @@
 import { PageShell } from "@/components/PageShell";
 import { StepRunner } from "@/components/StepRunner";
 import { PAGES } from "./registry";
-import { df, hlCols, hlHeaders, hlMerge, hlRows, withIndex } from "@/lib/dataframe";
+import { df, hlCols, hlHeaders, hlMerge, withIndex } from "@/lib/dataframe";
 import type { CellValue, HighlightMap, Step } from "@/types";
 
 // Raw event log. Users appear once per event, which is why every funnel

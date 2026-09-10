@@ -24,7 +24,7 @@ function inferDtype(values: CellValue[]): Dtype {
   for (const v of values) {
     if (v === null || v === undefined) continue;
     if (typeof v === "boolean") hasBool = true;
-    else if (typeof v === "number") { Number.isInteger(v) ? (hasInt = true) : (hasFloat = true); }
+    else if (typeof v === "number") { if (Number.isInteger(v)) hasInt = true; else hasFloat = true; }
     else if (typeof v === "string") hasString = true;
   }
   if (hasString) return "object";

@@ -13,6 +13,9 @@ export function PageShell({ meta, children }: Props) {
       <header className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <div className="grid place-items-center rounded-lg" style={{ width: 40, height: 40, background: "var(--accent-soft)", color: "var(--accent)" }}>
+            {/* topicIcon looks Icon up in a module-level map rather than defining it
+                here, so the reference is stable across renders. */}
+            {/* eslint-disable-next-line react-hooks/static-components */}
             <Icon size={20} strokeWidth={2} />
           </div>
           <div className="flex flex-col">

@@ -35,7 +35,7 @@ export function StepRunner({ runId, code, activeLineByStep, steps, layoutId = "d
       else if (e.key === " ") {
         if (isActivatable(e.target)) return; // the focused button handles it
         e.preventDefault();
-        isPlaying ? pause() : play();
+        if (isPlaying) pause(); else play();
       } else if (e.key === "r" || e.key === "R") { reset(); }
     };
     window.addEventListener("keydown", onKey);

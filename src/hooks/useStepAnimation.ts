@@ -9,7 +9,18 @@ export function useStepAnimation({ totalSteps, interval = 1200, resetKey }: Opts
   const clear = () => { if (timer.current !== null) { window.clearInterval(timer.current); timer.current = null; } };
 
   useEffect(() => () => clear(), []);
-  useEffect(() => { clear(); setStep(0); setPlaying(false); }, [resetKey]);
+
+  // Rewind when the caller hands us a new run (a topic change reuses this
+  // hook). Adjusting during render rather than in an effect means the new
+  // topic never paints a frame at the old topic's step first. Pausing is
+  // enough to stop the timer — the playback effect below clears it.
+  const [lastKey, setLastKey] = useState(resetKey);
+  if (lastKey !== resetKey) {
+    setLastKey(resetKey);
+    setStep(0);
+    setPlaying(false);
+  }
+
   useEffect(() => {
     if (!isPlaying) { clear(); return; }
     timer.current = window.setInterval(() => {

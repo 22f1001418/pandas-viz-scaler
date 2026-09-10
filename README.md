@@ -130,7 +130,16 @@ pandas-visualizer/
 │   ├── App.tsx                    # Hash routing, shortcuts, Suspense boundary, chunk prefetch
 │   ├── main.tsx                   # React root
 │   └── index.css                  # Scaler theme (indigo-teal palette, dark sidebar)
+├── tests/
+│   ├── setup.ts                   # jsdom gaps: requestIdleCallback, matchMedia, scrollTo
+│   ├── topics.test.tsx            # Mounts all 44 topics through their lazy chunks
+│   ├── registry.test.ts           # Section/icon/implementation invariants
+│   ├── routing.test.ts            # Hash parsing and prev/next
+│   ├── dataframe.test.ts          # df(), dtypes, formatting, highlight maps
+│   └── useStepAnimation.test.ts   # Playback: advance, clamp, rewind on new runId
+├── .github/workflows/ci.yml    # typecheck → lint → test → build
 ├── index.html
+├── eslint.config.js
 ├── package.json
 ├── tsconfig.json
 ├── vite.config.ts
@@ -149,6 +158,28 @@ npm run dev
 ```
 
 Opens at http://localhost:5173. Vite HMR gives sub-100ms feedback on changes.
+
+## Checks
+
+```bash
+npm run typecheck   # tsc --noEmit, over src/ and tests/
+npm run lint        # eslint (typescript-eslint + react-hooks), zero warnings
+npm test            # vitest, jsdom
+npm run test:watch  # the same, in watch mode
+npm run check       # all of the above, then a production build — what CI runs
+```
+
+`tests/` covers four things:
+
+| File | Guards |
+|---|---|
+| `topics.test.tsx` | Mounts all 44 topics. Each must resolve its lazy chunk, render its own `h1`, and draw a code cell plus a frame or diagram — an export renamed out from under `src/pages/index.ts` is invisible to TypeScript through a dynamic import, and this catches it. |
+| `registry.test.ts` | Every topic sits in exactly one section, has What/Why/How prose, is implemented, and has a real icon import (`topicIcon` falls back to Sparkles, so a missing one degrades silently). |
+| `routing.test.ts` | Hash parsing, the junk-hash fallback, replace-vs-push, and prev/next walking the curriculum in both directions. |
+| `dataframe.test.ts` / `useStepAnimation.test.ts` | The pure helpers behind every topic: dtype inference, cell formatting, highlight addressing; and playback — advance, clamp, stop at the end, rewind on a new `runId`. |
+
+CI (`.github/workflows/ci.yml`) runs `typecheck → lint → test → build` on every push to
+`main` and every pull request.
 
 ## Production build
 

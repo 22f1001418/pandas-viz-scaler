@@ -2,7 +2,7 @@ import { PageShell } from "@/components/PageShell";
 import { StepRunner } from "@/components/StepRunner";
 import { PAGES } from "./registry";
 import { df, hlCols, hlHeaders, hlMerge, hlRows, withIndex } from "@/lib/dataframe";
-import type { CellValue, HighlightMap, Step } from "@/types";
+import type { HighlightMap, Step } from "@/types";
 
 // 32. JSON to DataFrame
 

@@ -2,7 +2,7 @@ import { PageShell } from "@/components/PageShell";
 import { StepRunner } from "@/components/StepRunner";
 import { NullMatrix } from "@/components/NullMatrix";
 import { PAGES } from "./registry";
-import { df, hlCols, hlHeaders, hlMerge, hlRows, series, withIndex } from "@/lib/dataframe";
+import { df, hlCols, hlHeaders, hlMerge, hlRows, withIndex } from "@/lib/dataframe";
 import type { CellValue, HighlightMap, Step } from "@/types";
 
 // 38. Classifying Missingness (MCAR / MAR / MNAR)

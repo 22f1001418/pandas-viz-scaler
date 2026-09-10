@@ -33,12 +33,12 @@ const BUCKET_GAP = 14;
 export function SplitApplyCombine({ rowTones = DEFAULT_ROWS, groups = DEFAULT_GROUPS, aggLabel = "mean" }: Props) {
   // Lay buckets out by cumulative height so any group sizes fit without overlap.
   let cursor = 26;
-  const placed = groups.map((g) => {
+  const placed = [];
+  for (const g of groups) {
     const h = g.rows * (ROW_H - 4) + BOX_PAD * 2;
-    const box = { ...g, y: cursor, h };
+    placed.push({ ...g, y: cursor, h });
     cursor += h + BUCKET_GAP;
-    return box;
-  });
+  }
 
   const srcH = rowTones.length * (ROW_H + ROW_GAP);
   const height = Math.max(cursor + 24, srcH + 66);

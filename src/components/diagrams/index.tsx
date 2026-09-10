@@ -10,6 +10,9 @@ import { Funnel } from "./Funnel";
  * `diagram: "venn-inner"` on a step and StepRunner draws it — no wiring
  * per page. Unknown keys render nothing rather than throwing.
  */
+/* A registry keyed by string is the point of this file, so it exports data
+   alongside the Diagram component and gives up fast refresh for both. */
+/* eslint-disable react-refresh/only-export-components */
 export const DIAGRAMS: Record<string, () => ReactNode> = {
   "venn-inner": () => <Venn mode="inner" />,
   "venn-left": () => <Venn mode="left" />,
