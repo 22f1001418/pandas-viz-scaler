@@ -89,6 +89,7 @@ pandas-visualizer/
 │   │   ├── PageShell.tsx           # What/Why/How header + layout
 │   │   ├── Sidebar.tsx             # Dark left nav: search, sections, progress dots
 │   │   ├── SeriesView.tsx          # pandas Series repr (no header, dtype footer)
+│   │   ├── NullMatrix.tsx          # missingno-style null density matrix
 │   │   ├── BarCompare.tsx          # Scaled magnitude/timing bars
 │   │   ├── StepRunner.tsx          # Glue: code + diagram + frames + bars + inspector
 │   │   ├── TopBar.tsx              # Breadcrumb, topic nav, shortcuts, theme toggle
@@ -106,11 +107,13 @@ pandas-visualizer/
 │   │   ├── Foundations1.tsx        # Series, Selection, Comprehensions, Lambda, Filtering
 │   │   ├── Foundations2.tsx        # Sorting, Agg, Dates, Missing, Chaining
 │   │   ├── Vectorization.tsx       # cut/qcut, Vectorization, Loop vs Vec
-│   │   ├── GroupBy.tsx             # GroupBy mental model, Multi-level GroupBy
-│   │   ├── TimeSeries.tsx          # Rolling Windows, Shift & Lag
-│   │   ├── Reshaping.tsx           # pivot_table
-│   │   ├── Joins.tsx               # Join Types Deep Dive
-│   │   ├── Patterns.tsx            # Funnel Analysis
+│   │   ├── GroupBy.tsx             # Mental model, agg patterns, transform/apply/filter, multi-level, windows
+│   │   ├── TimeSeries.tsx          # Resampling, Rolling Windows, Shift & Lag
+│   │   ├── Reshaping.tsx           # pivot_table, crosstab, melt
+│   │   ├── Joins.tsx               # Join types, merge vs join vs concat, mechanics, concat patterns
+│   │   ├── IO.tsx                  # JSON, chunking, Parquet, eval/query, indexing
+│   │   ├── Quality.tsx             # Missingness, imputation, duplicates, .str, regex, outliers
+│   │   ├── Patterns.tsx            # Cohort, Funnel, Normalizing, Fact + Dimension
 │   │   └── StubPage.tsx           # Placeholder for topics not yet visualized
 │   ├── hooks/
 │   │   └── useStepAnimation.ts    # Step progression via setInterval
@@ -233,21 +236,25 @@ than typing results in by hand, so the numbers on screen cannot drift from the d
 
 ## Implementation status
 
-**Fully visualized (20 topics):**
+**All 44 topics are visualized.** Every topic has a step-by-step run with code, animated frames,
+highlights, and an Inspector explanation - no stub pages remain.
+
+Roughly 300 steps in total, averaging ~7 per topic. Depth is deliberate: each topic aims to show
+not just what an operation does, but the failure mode that makes it worth understanding - the
+silent row drop in an inner join, the blanked MultiIndex labels that become empty CSV cells, the
+`shift` that is quietly wrong on unsorted rows.
 
 | Section | Topics |
 |---|---|
-| Foundations | Series vs DataFrame, Selection & Indexing, Comprehensions, Lambda/map/filter, Filtering Patterns, Sorting & Top-N, Basic Aggregation, Working with Dates, Missing Data Basics, Chaining vs Intermediates |
-| Vectorization | pd.cut & pd.qcut, Vectorization Patterns, Loop vs Vectorized |
-| GroupBy | GroupBy Mental Model, Multi-level GroupBy |
-| Time Series | Rolling Windows, Shift & Lag |
-| Reshaping | pivot_table |
-| Joins | Join Types Deep Dive |
-| Patterns | Funnel Analysis |
-
-**Stub pages with full W/W/H context (24 topics):**
-All remaining topics are navigable from the sidebar and show their What/Why/How context with a
-"visualization in progress" placeholder. The sidebar dot tells the two apart at a glance.
+| Foundations | 10 |
+| Vectorization | 3 |
+| GroupBy | 5 |
+| Time Series | 3 |
+| Reshaping | 3 |
+| Patterns | 4 |
+| Joins | 4 |
+| I/O & Performance | 5 |
+| Data Quality | 7 |
 
 ---
 

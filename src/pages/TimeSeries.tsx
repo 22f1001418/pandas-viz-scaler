@@ -1,7 +1,7 @@
 import { PageShell } from "@/components/PageShell";
 import { StepRunner } from "@/components/StepRunner";
 import { PAGES } from "./registry";
-import { df, hlCols, series } from "@/lib/dataframe";
+import { df, hlCols, hlMerge, hlRows, series, withIndex } from "@/lib/dataframe";
 import type { CellValue, HighlightMap, Step } from "@/types";
 
 const WEEK = ["W01", "W02", "W03", "W04", "W05", "W06", "W07", "W08"];
@@ -177,6 +177,124 @@ df["sales"].shift(-1)              # look FORWARD one row
 
 # Several regions in one frame? Restart the lag per group:
 df.groupby("region")["sales"].shift(1)`} />
+    </PageShell>
+  );
+}
+
+// 19. Resampling
+
+// Deliberately irregular: some days have several orders, some have none.
+const TX_DATE = [
+  "2024-03-01", "2024-03-01", "2024-03-03", "2024-03-04",
+  "2024-03-08", "2024-03-11", "2024-03-12", "2024-03-12", "2024-03-19",
+];
+const TX_AMOUNT = [120, 80, 260, 95, 310, 140, 60, 200, 175];
+
+/** ISO week bucket (Mondays) for each transaction date. */
+function weekOf(iso: string): string {
+  const d = new Date(iso + "T00:00:00Z");
+  const day = (d.getUTCDay() + 6) % 7; // Monday = 0
+  d.setUTCDate(d.getUTCDate() - day);
+  return d.toISOString().slice(0, 10);
+}
+
+export function ResamplePage() {
+  const TX = df({ date: TX_DATE, amount: TX_AMOUNT });
+
+  const weeks = [...new Set(TX_DATE.map(weekOf))].sort();
+  // Every Monday in the span, including the one with no transactions at all.
+  const allWeeks: string[] = [];
+  for (let d = new Date(weeks[0] + "T00:00:00Z"); d.toISOString().slice(0, 10) <= weeks[weeks.length - 1];
+       d.setUTCDate(d.getUTCDate() + 7)) {
+    allWeeks.push(d.toISOString().slice(0, 10));
+  }
+
+  const weekSum = (w: string) =>
+    TX_AMOUNT.filter((_, i) => weekOf(TX_DATE[i]) === w).reduce((a, b) => a + b, 0);
+  const weekCount = (w: string) => TX_DATE.filter((d) => weekOf(d) === w).length;
+
+  const strTx = withIndex(df({ amount: TX_AMOUNT }), TX_DATE, ["date"]);
+
+  const resampled = withIndex(
+    df({ amount: allWeeks.map(weekSum), n_orders: allWeeks.map(weekCount) }),
+    allWeeks, ["date"],
+  );
+
+  const groupbyVersion = withIndex(
+    df({ amount: weeks.map(weekSum) }), weeks, ["week"],
+  );
+
+  const emptyWeeks = allWeeks.map((w, i) => (weekCount(w) === 0 ? i : -1)).filter((i) => i >= 0);
+  const emptyHl = hlRows(emptyWeeks, 2, "null");
+
+  const daily = withIndex(
+    df({ amount: ["...", "...", "..."] }),
+    ["2024-03-01", "2024-03-02", "2024-03-03"], ["date"],
+  );
+
+  const steps: Step[] = [
+    {
+      id: "raw", label: "Irregular transactions",
+      views: [{ frame: TX, title: "tx", badge: "9 orders, uneven days" }],
+      explain: "Raw transaction logs are irregular: two orders on the 1st, none on the 2nd, a gap over the 5th to the 7th. Nobody reports at this granularity - you roll it up to days, weeks, or months first.",
+    },
+    {
+      id: "dtype", label: "Strings will not do",
+      views: [{ frame: TX, title: "tx", highlights: hlMerge(hlCols([0], 9, "drop"), { "h:0": "drop" }), badge: "dtype: object" }],
+      explain: "Those dates are strings. Sorting them happens to work for ISO format and breaks for anything else, and no time-aware operation will touch them. pd.to_datetime first - this is the step people skip.",
+      variables: [{ name: "tx['date'].dtype", type: "dtype", preview: "object  (should be datetime64)" }],
+    },
+    {
+      id: "index", label: "resample needs a DatetimeIndex",
+      views: [{ frame: strTx, title: "tx.set_index('date')", highlights: { "i:*": "match" }, badge: "dates are now the index" }],
+      explain: "resample buckets along the INDEX, so the datetime column has to become the index. Alternatively pass on='date' and let resample find the column - but the index form is what you will see in most code.",
+    },
+    {
+      id: "buckets", label: "Bucket by frequency",
+      views: [{ frame: resampled, title: "tx.resample('W-MON')['amount'].sum()", highlights: hlCols([0], allWeeks.length, "new"), badge: "one row per week" }],
+      explain: "resample('W') is groupby for time: every row falls into the calendar bucket that contains it, and the aggregation runs per bucket. D, W, ME, QE and YE cover almost everything you will need.",
+    },
+    {
+      id: "gaps", label: "The difference that matters",
+      views: [{ frame: resampled, title: "resample fills empty periods", highlights: emptyHl, badge: "a week with no orders" }],
+      explain: "Here is what separates resample from groupby: resample emits EVERY period in the range, including ones with no data. That quiet week shows up as a real row with zero. It is a gap in your business, and a chart built on it will show the dip.",
+    },
+    {
+      id: "groupby-compare", label: "groupby would hide it",
+      views: [
+        { frame: groupbyVersion, title: "groupby(week).sum()", badge: `${weeks.length} rows - gap missing` },
+        { frame: resampled, title: "resample('W').sum()", highlights: emptyHl, badge: `${allWeeks.length} rows - gap shown` },
+      ],
+      explain: "Same data, same aggregation, different row counts. groupby only ever produces keys that exist in the data, so the empty week silently vanishes and your line chart draws straight through it. For anything time-based, this is why resample is the right tool.",
+    },
+    {
+      id: "agg", label: "Any aggregation, several at once",
+      views: [{ frame: resampled, title: ".agg({'amount': 'sum', 'order_id': 'count'})", highlights: hlCols([1], allWeeks.length, "match"), badge: "sum + count" }],
+      explain: "resample returns a groupby-like object, so everything from the aggregation lesson applies: .sum(), .mean(), .agg() with a dict, named aggregation. Revenue and order count per week in one pass.",
+    },
+    {
+      id: "upsample", label: "Upsampling goes the other way",
+      views: [{ frame: daily, title: "resample('D').ffill()", badge: "coarse to fine" }],
+      explain: "Resampling to a FINER frequency creates rows that have no data - you have to say what fills them. ffill carries the last known value forward, interpolate draws a line between points, asfreq leaves NaN. Choose deliberately: ffill on a monthly price series invents 29 days of flat prices.",
+    },
+  ];
+
+  return (
+    <PageShell meta={PAGES["resample"]}>
+      <StepRunner runId="resample" steps={steps} code={`tx["date"] = pd.to_datetime(tx["date"])     # strings will not resample
+tx = tx.set_index("date")                    # resample buckets on the INDEX
+
+tx.resample("W")["amount"].sum()             # weekly revenue
+tx.resample("ME")["amount"].sum()            # month end
+tx.resample("W").agg(revenue=("amount", "sum"), orders=("amount", "count"))
+
+# resample emits EVERY period, including empty ones.
+# groupby only emits keys that exist - which silently hides quiet weeks.
+tx.groupby(tx.index.to_period("W"))["amount"].sum()
+
+# Upsampling creates empty rows: say how they fill
+tx.resample("D")["amount"].ffill()
+tx.resample("D")["amount"].interpolate()`} />
     </PageShell>
   );
 }
