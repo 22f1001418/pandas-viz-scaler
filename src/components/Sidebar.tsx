@@ -4,7 +4,6 @@ import { topicIcon } from "@/lib/icons";
 import { useStore } from "@/store/useStore";
 import { PAGES, SECTIONS } from "@/pages/registry";
 import { isImplemented } from "@/pages";
-import { PAGE_ORDER } from "@/lib/routing";
 import type { PageId } from "@/store/useStore";
 
 const matches = (id: PageId, q: string): boolean => {
@@ -38,8 +37,6 @@ export function Sidebar() {
         .filter((sec) => sec.pages.length > 0),
     [q],
   );
-
-  const built = PAGE_ORDER.filter(isImplemented).length;
 
   return (
     <aside className={`sidebar shrink-0 overflow-hidden transition-[width] duration-200 ease-out ${open ? "w-[252px]" : "w-0"}`}>
@@ -103,10 +100,34 @@ export function Sidebar() {
           )}
         </nav>
 
-        <div className="px-4 py-3 text-[11px] leading-relaxed" style={{ color: "var(--sidebar-muted)", borderTop: "1px solid var(--sidebar-border)" }}>
-          {built} of {PAGE_ORDER.length} topics visualized
+        <div className="px-4 py-3 flex items-center gap-2.5" style={{ borderTop: "1px solid var(--sidebar-border)" }}>
+          <Monogram />
+          <span className="text-[11px] tracking-[0.16em] uppercase" style={{ color: "var(--sidebar-muted)" }}>made by KM</span>
         </div>
       </div>
     </aside>
+  );
+}
+
+/** Hairline-ring KM monogram — sits in the sidebar footer as the signature mark. */
+function Monogram() {
+  return (
+    <svg width={26} height={26} viewBox="0 0 40 40" role="img" aria-label="KM monogram" className="shrink-0">
+      <circle cx="20" cy="20" r="18.4" fill="none" stroke="currentColor" strokeOpacity={0.28} strokeWidth={1} style={{ color: "var(--sidebar-fg)" }} />
+      <circle cx="20" cy="20" r="15.6" fill="none" stroke="currentColor" strokeOpacity={0.5} strokeWidth={0.6} style={{ color: "var(--sidebar-fg)" }} />
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--sidebar-fg)" }}
+      >
+        <path d="M11.6 14.2V25.8" />
+        <path d="M11.6 21.1L16.4 14.6" />
+        <path d="M13.2 19L16.8 25.8" />
+        <path d="M20.4 25.8V14.2l4.2 6.1 4.2-6.1v11.6" />
+      </g>
+    </svg>
   );
 }
